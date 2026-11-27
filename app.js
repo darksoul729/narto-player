@@ -10,6 +10,8 @@ let selection = 0;
 let searchTimer;
 let catalogRequest = 0;
 let displayedTotal = 0;
+let playRequest = 0;
+let transcoding = false;
 
 function message(text) {
   $('screenMessageText').textContent = text;
@@ -85,6 +87,8 @@ async function loadCatalog(query = '') {
 
 async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
   const requestId = ++selection;
+  playRequest++;
+  transcoding = false;
   currentDrama = drama;
   episodes = [];
   currentEp = 0;
@@ -143,8 +147,10 @@ function renderEpisodes() {
   }
 }
 
-function playEpisode(index) {
+async function playEpisode(index) {
   if (index < 0 || index >= episodes.length || !episodes[index].url) return;
+  const requestId = ++playRequest;
+  transcoding = false;
   currentEp = index;
   const episode = episodes[index];
   $('episodeBadge').textContent = `Episode ${episode.number || index + 1}`;
@@ -155,20 +161,28 @@ function playEpisode(index) {
   if (hls) { hls.destroy(); hls = null; }
   video.removeAttribute('src');
   video.load();
-  const source = episode.isHls ? `${API}/proxy?url=${encodeURIComponent(episode.url)}` : episode.url;
-  if (episode.isHls && window.Hls?.isSupported()) {
-    hls = new Hls();
-    hls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) playbackError();
-    });
-    hls.loadSource(source);
-    hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(playRejection));
-  } else if (!episode.isHls || video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = source;
-    video.play().catch(playRejection);
-  } else {
-    message('Browser ini tidak mendukung HLS. Coba browser terbaru.');
+  try {
+    const fresh = await json(`${API}/api/episode-source?slug=${encodeURIComponent(currentDrama.slug)}&number=${episode.number}`);
+    if (requestId !== playRequest) return;
+    const source = fresh.isHls ? `${API}/proxy?url=${encodeURIComponent(fresh.url)}` : fresh.url;
+    if (fresh.isHls && window.Hls?.isSupported()) {
+      hls = new Hls();
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) playbackError();
+      });
+      hls.loadSource(source);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(playRejection));
+    } else if (!fresh.isHls || video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = source;
+      video.play().catch(playRejection);
+    } else {
+      message('Browser ini tidak mendukung HLS. Coba browser terbaru.');
+    }
+  } catch (error) {
+    if (requestId !== playRequest) return;
+    message(`Gagal memperbarui tautan: ${error.message}`);
+    showAction('Coba lagi', () => playEpisode(currentEp));
   }
 }
 
@@ -181,12 +195,26 @@ function playRejection(error) {
 }
 
 function playbackError() {
+  if (!transcoding) return fallbackToTranscode();
   message('Tautan video dari sumber gagal atau kedaluwarsa. Coba ambil ulang tautannya.');
-  showAction('Coba lagi', () => selectDrama(currentDrama, episodes[currentEp]?.number));
+  showAction('Coba lagi', () => playEpisode(currentEp));
 }
 
-video.addEventListener('loadeddata', hideMessage);
-video.addEventListener('playing', hideMessage);
+function fallbackToTranscode() {
+  if (transcoding || !currentDrama || !episodes[currentEp]) return;
+  transcoding = true;
+  message('Menyesuaikan format video untuk browser...');
+  video.pause();
+  if (hls) { hls.destroy(); hls = null; }
+  video.src = `${API}/api/transcode?slug=${encodeURIComponent(currentDrama.slug)}&number=${episodes[currentEp].number}`;
+  video.play().catch(playRejection);
+}
+
+video.addEventListener('loadeddata', () => {
+  if (video.videoWidth) hideMessage();
+  else if (!transcoding) fallbackToTranscode();
+});
+video.addEventListener('playing', () => { if (video.videoWidth) hideMessage(); });
 video.addEventListener('error', playbackError);
 video.addEventListener('ended', () => {
   const next = episodes.findIndex((episode, index) => index > currentEp && episode.url);

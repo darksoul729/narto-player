@@ -3,6 +3,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const PORT = 8902;
 const catalogPath = path.join(__dirname, 'catalog.json');
@@ -10,6 +11,8 @@ let catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 let lastUpdated = fs.statSync(catalogPath).mtime.toISOString();
 let lastAdded = 0;
 let syncPromise = null;
+const sourceContexts = new Map();
+const recentSources = new Map();
 const COOKIE = `nd_ck=${process.env.ND_CK || crypto.randomBytes(12).toString('hex')}; nd_lang=id-ID`;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const CDN = 'https://cdn.narto-drama.com';
@@ -40,6 +43,14 @@ async function getEpisodes(slug) {
   if (upstream.statusCode !== 200) throw new Error(`Sumber episode HTTP ${upstream.statusCode}`);
   const match = html.match(/episodeItemsRaw\s*=\s*(\[.*?\]);/s);
   if (!match) throw new Error('Daftar episode tidak ditemukan');
+  const edgeRaw = html.match(/const refreshSourceEdgeBase = ("(?:\\.|[^"])*")/);
+  sourceContexts.set(slug, {
+    token: html.match(/const refreshSourceContextToken = "([^"]*)"/)?.[1] || '',
+    edge: edgeRaw ? JSON.parse(edgeRaw[1]) : '',
+    useEdge: /const refreshSourceUseEdge = true/.test(html),
+    directEdge: /const refreshSourceCandyjarEdgeDirect = true/.test(html),
+    fetchedAt: Date.now()
+  });
   return JSON.parse(match[1]).map(ep => ({
     number: ep.number || ep.route_episode_number,
     title: ep.title || `Episode ${ep.number}`,
@@ -47,6 +58,29 @@ async function getEpisodes(slug) {
     isHls: ep.direct_play_url ? ep.direct_play_is_hls !== false : /\.m3u8(?:\?|$)/.test(ep.play_url || ''),
     thumb: ep.thumb_url || ''
   }));
+}
+
+async function refreshEpisode(slug, number) {
+  let context = sourceContexts.get(slug);
+  if (!context || Date.now() - context.fetchedAt > 5 * 60 * 1000) {
+    await getEpisodes(slug);
+    context = sourceContexts.get(slug);
+  }
+  const route = `/detail/watch/${slug}/${number}/refresh-source`;
+  const base = context.edge || 'https://narto-drama.com';
+  const prefix = context.useEdge ? '/e/rs' : '';
+  const target = new URL(`${prefix}${route}`, context.useEdge || context.directEdge ? base : 'https://narto-drama.com');
+  target.search = new URLSearchParams({ lang: 'id-ID', rs_ctx: context.token, force: '1', no_cache: '1' }).toString();
+  const upstream = await request(target.href, { Cookie: COOKIE, 'User-Agent': UA, Accept: 'application/json' });
+  let body = '';
+  for await (const chunk of upstream) body += chunk;
+  if (upstream.statusCode !== 200) throw new Error(`Pembaruan tautan HTTP ${upstream.statusCode}`);
+  const data = JSON.parse(body);
+  const url = data.direct_play_url || data.play_url || '';
+  if (!data.ok || !url) throw new Error('Sumber belum menyediakan tautan video baru');
+  const source = { url, isHls: data.direct_play_url ? data.direct_play_is_hls !== false : /\.m3u8(?:\?|$)/.test(data.play_url || '') };
+  recentSources.set(`${slug}:${number}`, { ...source, fetchedAt: Date.now() });
+  return source;
 }
 
 async function searchCatalog(query) {
@@ -152,6 +186,34 @@ const server = http.createServer(async (req, res) => {
       const episodes = await getEpisodes(slug);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ slug, episodes }));
+    }
+
+    if (url.pathname === '/api/episode-source') {
+      const slug = url.searchParams.get('slug');
+      const number = Number(url.searchParams.get('number'));
+      if (!slug || !/^[a-z0-9-]+$/.test(slug) || !Number.isInteger(number) || number < 1) { res.writeHead(400); return res.end('Invalid episode'); }
+      const source = await refreshEpisode(slug, number);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(source));
+    }
+
+    if (url.pathname === '/api/transcode') {
+      const slug = url.searchParams.get('slug');
+      const number = Number(url.searchParams.get('number'));
+      if (!slug || !/^[a-z0-9-]+$/.test(slug) || !Number.isInteger(number) || number < 1) { res.writeHead(400); return res.end('Invalid episode'); }
+      const cached = recentSources.get(`${slug}:${number}`);
+      const source = cached && Date.now() - cached.fetchedAt < 60 * 1000 ? cached : await refreshEpisode(slug, number);
+      const ffmpeg = spawn('ffmpeg', [
+        '-nostdin', '-hide_banner', '-loglevel', 'error', '-i', source.url,
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30',
+        '-c:a', 'aac', '-b:a', '96k',
+        '-movflags', 'frag_keyframe+empty_moov+default_base_moof', '-f', 'mp4', 'pipe:1'
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
+      ffmpeg.stderr.resume();
+      ffmpeg.on('error', () => { if (!res.destroyed) res.destroy(); });
+      res.on('close', () => ffmpeg.kill('SIGKILL'));
+      res.writeHead(200, { 'Content-Type': 'video/mp4', 'Cache-Control': 'no-store' });
+      return ffmpeg.stdout.pipe(res);
     }
 
     if (url.pathname === '/proxy') {
