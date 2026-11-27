@@ -5,7 +5,11 @@ const path = require('path');
 const crypto = require('crypto');
 
 const PORT = 8902;
-const CATALOG = JSON.parse(fs.readFileSync(path.join(__dirname, 'catalog.json'), 'utf8'));
+const catalogPath = path.join(__dirname, 'catalog.json');
+let catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+let lastUpdated = fs.statSync(catalogPath).mtime.toISOString();
+let lastAdded = 0;
+let syncPromise = null;
 const COOKIE = `nd_ck=${process.env.ND_CK || crypto.randomBytes(12).toString('hex')}; nd_lang=id-ID`;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const CDN = 'https://cdn.narto-drama.com';
@@ -52,6 +56,10 @@ async function searchCatalog(query) {
   let html = '';
   for await (const chunk of upstream) html += chunk;
   if (upstream.statusCode !== 200) throw new Error(`Pencarian sumber HTTP ${upstream.statusCode}`);
+  return extractCatalog(html);
+}
+
+function extractCatalog(html) {
   const scripts = html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/g);
   for (const script of scripts) {
     const data = JSON.parse(script[1]);
@@ -66,6 +74,40 @@ async function searchCatalog(query) {
     }).filter(item => item.slug && item.title);
   }
   throw new Error('Hasil pencarian tidak ditemukan pada halaman sumber');
+}
+
+function updateCatalog(query = '') {
+  if (syncPromise) return query ? syncPromise.then(() => updateCatalog(query)) : syncPromise;
+  syncPromise = (async () => {
+    const latest = [];
+    for (let page = 1; page <= 2; page++) {
+      const upstream = await request(`https://narto-drama.com/?lang=id-ID&page=${page}`, {
+        Cookie: COOKIE, 'User-Agent': UA, Accept: 'text/html'
+      });
+      let html = '';
+      for await (const chunk of upstream) html += chunk;
+      if (upstream.statusCode !== 200) throw new Error(`Katalog sumber HTTP ${upstream.statusCode}`);
+      latest.push(...extractCatalog(html));
+      if (!html.includes('rel="next"')) break;
+    }
+    if (query) latest.push(...await searchCatalog(query));
+    if (!latest.length) throw new Error('Halaman sumber tidak memuat judul');
+    const existing = new Set(catalog.map(item => item.slug));
+    const added = latest.filter(item => {
+      if (existing.has(item.slug)) return false;
+      existing.add(item.slug);
+      return true;
+    });
+    const merged = [...added, ...catalog];
+    const tempPath = `${catalogPath}.tmp`;
+    await fs.promises.writeFile(tempPath, `${JSON.stringify(merged, null, 2)}\n`);
+    await fs.promises.rename(tempPath, catalogPath);
+    catalog = merged;
+    lastUpdated = new Date().toISOString();
+    lastAdded = added.length;
+    return { total: catalog.length, added: lastAdded, checked: latest.length, lastUpdated };
+  })().finally(() => { syncPromise = null; });
+  return syncPromise;
 }
 
 function proxyUrl(value, source) {
@@ -88,9 +130,20 @@ const server = http.createServer(async (req, res) => {
       const q = (url.searchParams.get('q') || '').toLowerCase();
       const page = Math.max(1, parseInt(url.searchParams.get('page'), 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit'), 10) || 60));
-      const items = q ? await searchCatalog(q) : CATALOG;
+      const items = q ? await searchCatalog(q) : catalog;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ total: items.length, page, items: items.slice((page - 1) * limit, page * limit) }));
+    }
+
+    if (url.pathname === '/api/catalog/status') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ total: catalog.length, lastUpdated, lastAdded, updating: Boolean(syncPromise) }));
+    }
+
+    if (url.pathname === '/api/catalog/update' && req.method === 'POST') {
+      const result = await updateCatalog((url.searchParams.get('q') || '').trim().slice(0, 100));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(result));
     }
 
     if (url.pathname === '/api/episodes') {
@@ -136,4 +189,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Narto player http://localhost:${PORT} (${CATALOG.length} dramas)`));
+server.listen(PORT, () => {
+  console.log(`Narto player http://localhost:${PORT} (${catalog.length} dramas)`);
+  updateCatalog().catch(error => console.error(`Catalog update failed: ${error.message}`));
+});
+setInterval(() => updateCatalog().catch(error => console.error(`Catalog update failed: ${error.message}`)), 60 * 60 * 1000);

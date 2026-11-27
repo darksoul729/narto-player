@@ -9,6 +9,7 @@ let hls = null;
 let selection = 0;
 let searchTimer;
 let catalogRequest = 0;
+let displayedTotal = 0;
 
 function message(text) {
   $('screenMessage').textContent = text;
@@ -62,6 +63,7 @@ async function loadCatalog(query = '') {
     const data = await json(`${API}/api/catalog?limit=60&q=${encodeURIComponent(query)}`);
     if (requestId !== catalogRequest) return;
     catalog = data.items;
+    if (!query) displayedTotal = data.total;
     $('catalogStats').textContent = query
       ? `${data.total.toLocaleString('id-ID')} ditampilkan`
       : `${data.total.toLocaleString('id-ID')} tersimpan`;
@@ -158,5 +160,30 @@ $('searchInput').oninput = event => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadCatalog(event.target.value.trim()), 250);
 };
+
+$('updateBtn').onclick = async () => {
+  const button = $('updateBtn');
+  button.disabled = true;
+  $('updateStatus').textContent = 'Memeriksa sumber...';
+  try {
+    const query = $('searchInput').value.trim();
+    const response = await fetch(`${API}/api/catalog/update?q=${encodeURIComponent(query)}`, { method: 'POST' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    $('updateStatus').textContent = result.added ? `+${result.added} judul baru` : 'Sudah terbaru';
+    await loadCatalog($('searchInput').value.trim());
+  } catch (error) {
+    $('updateStatus').textContent = `Update gagal: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+};
+
+setInterval(async () => {
+  try {
+    const status = await json(`${API}/api/catalog/status`);
+    if (!$('searchInput').value.trim() && status.total !== displayedTotal) loadCatalog();
+  } catch (_) {}
+}, 60 * 1000);
 
 loadCatalog();

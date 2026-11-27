@@ -1,5 +1,365 @@
 [
   {
+    "slug": "kuno-sembilan-kitab-langit",
+    "title": "Kuno Sembilan Kitab Langit",
+    "poster": "https://img.nartodrama-api.online/poster/490755.jpg"
+  },
+  {
+    "slug": "kuno-sembilan-kitab-langit-2",
+    "title": "Kuno Sembilan Kitab Langit 2",
+    "poster": "https://narto-drama.com/assets/poster/832657.jpg"
+  },
+  {
+    "slug": "kuno-sembilan-kitab-langit-3",
+    "title": "Kuno Sembilan Kitab Langit 3",
+    "poster": "https://narto-drama.com/assets/poster/832658.jpg"
+  },
+  {
+    "slug": "kuno-sembilan-kitab-langit-4",
+    "title": "Kuno Sembilan Kitab Langit 4",
+    "poster": "https://narto-drama.com/assets/poster/832663.jpg"
+  },
+  {
+    "slug": "putri-rubah-ekor-sembilan",
+    "title": "Putri Rubah Ekor Sembilan",
+    "poster": "https://img.nartodrama-api.online/poster/519439.jpg"
+  },
+  {
+    "slug": "menikah-dengan-siluman-ular",
+    "title": "Menikah dengan siluman ular",
+    "poster": "https://img.nartodrama-api.online/poster/143109.png"
+  },
+  {
+    "slug": "hewan-ternakku-semuanya-makhluk-dewa",
+    "title": "Hewan ternakku semuanya makhluk dewa",
+    "poster": "https://narto-drama.com/assets/poster/1203942.jpg"
+  },
+  {
+    "slug": "pecundang-waris-kitab-surgawi",
+    "title": "Pecundang waris kitab surgawi",
+    "poster": "https://img.nartodrama-api.online/poster/780390.jpg"
+  },
+  {
+    "slug": "heavenly-manual-conquer-all-realms",
+    "title": "Heavenly Manual: Conquer All Realms",
+    "poster": "https://narto-drama.com/assets/poster/889716.jpg"
+  },
+  {
+    "slug": "el-mortal-mas-poderoso",
+    "title": "El mortal más poderoso",
+    "poster": "https://img.nartodrama-api.online/poster/587784.jpg"
+  },
+  {
+    "slug": "o-imperador-inconsciente",
+    "title": "O imperador inconsciente",
+    "poster": "https://img.nartodrama-api.online/poster/605380.png"
+  },
+  {
+    "slug": "khaakhuue-mhaacchakrphrrdi",
+    "title": "ข้าคือมหาจักรพรรดิ",
+    "poster": "https://img.nartodrama-api.online/poster/641201.png"
+  },
+  {
+    "slug": "efan-haiwan-ku-semua-maharaja",
+    "title": "Efan: Haiwan Ku Semua Maharaja",
+    "poster": "https://img.nartodrama-api.online/poster/728366.png"
+  },
+  {
+    "slug": "the-farmer-s-pet-emperors",
+    "title": "The Farmer's Pet Emperors",
+    "poster": "https://img.nartodrama-api.online/poster/587787.jpg"
+  },
+  {
+    "slug": "l-immortel-aux-neuf-rouleaux",
+    "title": "L'immortel aux neuf rouleaux",
+    "poster": "https://narto-drama.com/assets/poster/1042516.png"
+  },
+  {
+    "slug": "aku-sungguh-bukan-dewa-2",
+    "title": "Aku Sungguh Bukan Dewa",
+    "poster": "https://img.nartodrama-api.online/poster/21169.jpg"
+  },
+  {
+    "slug": "sulam-takdir-seribu-tahun",
+    "title": "Sulam takdir seribu tahun",
+    "poster": "https://img.nartodrama-api.online/poster/687946.jpg"
+  },
+  {
+    "slug": "dewa-agung-kitab-surgawi",
+    "title": "Dewa Agung Kitab Surgawi",
+    "poster": "https://img.nartodrama-api.online/poster/780279.jpg"
+  },
+  {
+    "slug": "sembilan-reinkarnasi-kaisar",
+    "title": "Sembilan Reinkarnasi Kaisar",
+    "poster": "https://img.nartodrama-api.online/poster/4160.jpg"
+  },
+  {
+    "slug": "putri-ekor-sembilan-celaka-sang-ibu-kaisar-iblis-turun-gunung-membasmi-musuh",
+    "title": "Putri Ekor Sembilan Celaka? Sang Ibu Kaisar Iblis Turun Gunung Membasmi Musuh",
+    "poster": "https://img.nartodrama-api.online/poster/67677.jpg"
+  },
+  {
+    "slug": "pangeran-sembilan-penyelamat-kerajaan",
+    "title": "Pangeran Sembilan Penyelamat Kerajaan",
+    "poster": "https://narto-drama.com/assets/poster/1174320.jpg"
+  },
+  {
+    "slug": "legenda-puteri-sembilan",
+    "title": "Legenda Puteri Sembilan",
+    "poster": "https://img.nartodrama-api.online/poster/4745.jpg"
+  },
+  {
+    "slug": "sembilan-ekor-menjadi-abu",
+    "title": "Sembilan Ekor Menjadi Abu",
+    "poster": "https://img.nartodrama-api.online/poster/56129.jpg"
+  },
+  {
+    "slug": "kultivator-fana-sembilan-wilayah",
+    "title": "Kultivator Fana Sembilan Wilayah",
+    "poster": "https://img.nartodrama-api.online/poster/96695.jpg"
+  },
+  {
+    "slug": "lord-of-the-abyss-2",
+    "title": "\"Lord of the Abyss\"",
+    "poster": "https://img.nartodrama-api.online/poster/484709.jpg"
+  },
+  {
+    "slug": "20-milikku-lebih-berharga-dari-rumah-mewahmu",
+    "title": "$20 Milikku Lebih Berharga dari Rumah Mewahmu",
+    "poster": "https://img.nartodrama-api.online/poster/651419.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-berkah-tiga-anak",
+    "title": "(Disulihsuarakan) Berkah tiga anak",
+    "poster": "https://img.nartodrama-api.online/poster/37805.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-cantik-di-tengah-badai",
+    "title": "(Disulihsuarakan) Cantik di tengah badai",
+    "poster": "https://img.nartodrama-api.online/poster/13264.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-dendam-ratu-kecantikan",
+    "title": "(Disulihsuarakan) Dendam Ratu Kecantikan",
+    "poster": "https://img.nartodrama-api.online/poster/31702.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-dia-menunggu-tujuh-tahun-cukup-bersembunyi",
+    "title": "(Disulihsuarakan) Dia Menunggu Tujuh Tahun. Cukup Bersembunyi.",
+    "poster": "https://narto-drama.com/assets/poster/996769.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-dia-tanda-tangan-kontrak-dia-tanda-tangan-masa-depanmu",
+    "title": "(Disulihsuarakan) Dia Tanda Tangan Kontrak. Dia Tanda Tangan Masa Depanmu.",
+    "poster": "https://narto-drama.com/assets/poster/996760.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-dulu-permaisuri-sekarang-ancaman",
+    "title": "(Disulihsuarakan) Dulu Permaisuri, Sekarang Ancaman",
+    "poster": "https://narto-drama.com/assets/poster/1001742.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-hidup-yang-mewah",
+    "title": "(Disulihsuarakan) Hidup Yang Mewah",
+    "poster": "https://img.nartodrama-api.online/poster/548889.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-judul-kubangun-kota-ini-dengan-sepatu-bot-kerja",
+    "title": "(Disulihsuarakan) Judul: Kubangun Kota Ini dengan Sepatu Bot Kerja",
+    "poster": "https://narto-drama.com/assets/poster/1001734.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-kobaran-api-kemuliaan",
+    "title": "(Disulihsuarakan) Kobaran Api Kemuliaan",
+    "poster": "https://img.nartodrama-api.online/poster/548880.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-kurir-itu-ternyata-dewa-bela-diri-pelindung-negeri",
+    "title": "(Disulihsuarakan) Kurir Itu Ternyata Dewa Bela Diri Pelindung Negeri!",
+    "poster": "https://narto-drama.com/assets/poster/975216.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-mekar-setelah-badai",
+    "title": "(Disulihsuarakan) Mekar Setelah Badai",
+    "poster": "https://narto-drama.com/assets/poster/968131.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-murid-raja-kera",
+    "title": "(Disulihsuarakan) Murid Raja Kera",
+    "poster": "https://img.nartodrama-api.online/poster/13261.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-naga-tersembunyi-kembalinya-tuan-muda",
+    "title": "(Disulihsuarakan) Naga Tersembunyi: Kembalinya Tuan Muda",
+    "poster": "https://narto-drama.com/assets/poster/968126.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-nelayan-itu-ternyata-pendekar-sakti",
+    "title": "(Disulihsuarakan) Nelayan Itu Ternyata Pendekar Sakti",
+    "poster": "https://narto-drama.com/assets/poster/968138.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-pangeran-mahkota-yang-tersembunyi",
+    "title": "(Disulihsuarakan) Pangeran Mahkota yang Tersembunyi",
+    "poster": "https://narto-drama.com/assets/poster/968135.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-pernikahan-yang-hancur",
+    "title": "(Disulihsuarakan) Pernikahan yang Hancur",
+    "poster": "https://img.nartodrama-api.online/poster/548901.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-sopir-taksi-ini-pemilik-kota",
+    "title": "(Disulihsuarakan) Sopir Taksi Ini Pemilik Kota!",
+    "poster": "https://narto-drama.com/assets/poster/1001743.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-suami-dokter-yang-tak-terkalahkan",
+    "title": "(Disulihsuarakan) Suami Dokter yang Tak Terkalahkan",
+    "poster": "https://narto-drama.com/assets/poster/975214.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-suaraku-bisa-menghancurkanmu",
+    "title": "(Disulihsuarakan) Suaraku Bisa Menghancurkanmu",
+    "poster": "https://narto-drama.com/assets/poster/1001739.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-tersengat-listrik-aku-membuka-mode-dewa",
+    "title": "(Disulihsuarakan) Tersengat Listrik, Aku Membuka Mode Dewa",
+    "poster": "https://narto-drama.com/assets/poster/968133.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-tiga-wanita-antara-aku-dan-maut",
+    "title": "(Disulihsuarakan) Tiga Wanita Antara Aku dan Maut",
+    "poster": "https://narto-drama.com/assets/poster/996772.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-cinta-tak-terbalas",
+    "title": "(Disulihsuarakan)Cinta Tak Terbalas",
+    "poster": "https://img.nartodrama-api.online/poster/36475.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-dikhianati-cinta-terlahir-kembali-sebagai-santa",
+    "title": "(Disulihsuarakan)Dikhianati Cinta, Terlahir Kembali sebagai Santa",
+    "poster": "https://narto-drama.com/assets/poster/968127.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-ibu-naga",
+    "title": "(Disulihsuarakan)Ibu Naga",
+    "poster": "https://img.nartodrama-api.online/poster/15521.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-istri-yang-dia-hancurkan",
+    "title": "(Disulihsuarakan)Istri yang Dia Hancurkan",
+    "poster": "https://img.nartodrama-api.online/poster/548913.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-miliarder-yang-hanya-menerima-sup-darinya",
+    "title": "(Disulihsuarakan)Miliarder yang Hanya Menerima Sup Darinya",
+    "poster": "https://img.nartodrama-api.online/poster/548932.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-nyonya-berpura-pura-lembut-lagi",
+    "title": "(Disulihsuarakan)Nyonya Berpura-pura Lembut Lagi",
+    "poster": "https://narto-drama.com/assets/poster/1058392.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-putri-kesayangan-ayah",
+    "title": "(Disulihsuarakan)Putri Kesayangan Ayah",
+    "poster": "https://img.nartodrama-api.online/poster/89497.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-raja-perempuan-menjadi-kekayaan",
+    "title": "(Disulihsuarakan)Raja Perempuan menjadi kekayaan",
+    "poster": "https://img.nartodrama-api.online/poster/15974.jpg"
+  },
+  {
+    "slug": "disulihsuarakan-stimulus-cinta",
+    "title": "(Disulihsuarakan)Stimulus Cinta",
+    "poster": "https://img.nartodrama-api.online/poster/60345.jpg"
+  },
+  {
+    "slug": "doblado-atrapada-en-su-mirada-2",
+    "title": "(Doblado) Atrapada en su mirada",
+    "poster": "https://img.nartodrama-api.online/poster/205844.webp"
+  },
+  {
+    "slug": "doblado-bebe-prodigio-sanador",
+    "title": "(Doblado) Bebé prodigio sanador",
+    "poster": "https://img.nartodrama-api.online/poster/128064.jpg"
+  },
+  {
+    "slug": "doblado-despertar-venganza-y-gloria",
+    "title": "(Doblado) Despertar, venganza y gloria",
+    "poster": "https://img.nartodrama-api.online/poster/141145.jpg"
+  },
+  {
+    "slug": "doblado-el-amor-inicio-sesion-nena",
+    "title": "(Doblado) El amor inició sesión, nena",
+    "poster": "https://img.nartodrama-api.online/poster/437481.webp"
+  },
+  {
+    "slug": "doblado-el-arrepentimiento-de-la-exesposa-del-magnate",
+    "title": "(Doblado) El arrepentimiento de la exesposa del magnate",
+    "poster": "https://img.nartodrama-api.online/poster/364386.webp"
+  },
+  {
+    "slug": "doblado-el-dia-que-amanecio-con-cadaveres",
+    "title": "(Doblado) El día que amaneció con cadáveres",
+    "poster": "https://img.nartodrama-api.online/poster/439085.webp"
+  },
+  {
+    "slug": "doblado-el-error-de-millon-dolares",
+    "title": "(Doblado) El error de millón dólares",
+    "poster": "https://img.nartodrama-api.online/poster/149451.jpg"
+  },
+  {
+    "slug": "doblado-escuela-de-ambiciones",
+    "title": "(Doblado) Escuela de ambiciones​",
+    "poster": "https://img.nartodrama-api.online/poster/430099.webp"
+  },
+  {
+    "slug": "doblado-furia-de-los-dragones",
+    "title": "(Doblado) Furia de los Dragones",
+    "poster": "https://img.nartodrama-api.online/poster/226767.jpg"
+  },
+  {
+    "slug": "doblado-la-esposa-que-volvio-como-la-patrona",
+    "title": "(Doblado) La esposa que volvió como la patrona",
+    "poster": "https://img.nartodrama-api.online/poster/380411.webp"
+  },
+  {
+    "slug": "doblado-la-furia-del-francotirador",
+    "title": "(Doblado) La furia del francotirador",
+    "poster": "https://img.nartodrama-api.online/poster/365400.webp"
+  },
+  {
+    "slug": "doblado-la-heredera-abandonada-por-su-esposo",
+    "title": "(Doblado) La heredera abandonada por su esposo",
+    "poster": "https://img.nartodrama-api.online/poster/472922.webp"
+  },
+  {
+    "slug": "doblado-la-novia-negociada-del-ceo",
+    "title": "(Doblado) La Novia Negociada del CEO",
+    "poster": "https://img.nartodrama-api.online/poster/140416.jpg"
+  },
+  {
+    "slug": "doblado-mi-esposa-resulto-ser-agente",
+    "title": "(Doblado) Mi esposa resultó ser agente",
+    "poster": "https://img.nartodrama-api.online/poster/517883.webp"
+  },
+  {
+    "slug": "doblado-papa-fiscal-salva-a-mama",
+    "title": "(Doblado) Papá fiscal, salva a mamá",
+    "poster": "https://img.nartodrama-api.online/poster/366261.webp"
+  },
+  {
+    "slug": "doblado-presa-en-jaula-dorada",
+    "title": "(Doblado) Presa en jaula dorada",
+    "poster": "https://img.nartodrama-api.online/poster/461240.webp"
+  },
+  {
     "slug": "a-plus",
     "title": "A+",
     "poster": "https://img.nartodrama-api.online/poster/381086.jpg"

@@ -20,6 +20,10 @@ button{cursor:pointer}
 .search label,.section-label{display:block;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
 .search input{width:100%;height:42px;padding:0 14px;border:1px solid var(--line);border-radius:8px;outline:0;background:#0b0e14;color:var(--text)}
 .search input:focus{border-color:var(--accent)}
+.update-row{padding:0 16px 18px;display:flex;align-items:center;gap:10px}
+.update-btn{min-height:40px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:#1c222d;color:var(--text);font-size:12px;font-weight:600;white-space:nowrap}
+.update-btn:hover:not(:disabled){border-color:var(--accent)}.update-btn:disabled{opacity:.6;cursor:wait}
+.update-status{color:var(--muted);font-size:11px;line-height:1.35}
 .catalog-heading{padding:0 20px 10px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
 .catalog{overflow-y:auto;padding:0 8px 16px;scrollbar-color:#3b424e transparent;flex:1}
 .drama{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:9px;border:0;border-radius:9px;background:transparent;color:var(--text)}
@@ -60,6 +64,9 @@ video{width:100%;height:100%;object-fit:contain;display:block}
   .search input{height:50px;border-radius:15px;padding:0 16px;border:1px solid rgba(226,242,255,.24);background:rgba(227,242,255,.09);box-shadow:inset 0 1px rgba(255,255,255,.12),0 8px 26px rgba(2,10,22,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-size:16px;color:var(--text)}
   .search input::placeholder{color:#aabac9}
   .search input:focus{border-color:#c3e7ff;box-shadow:0 0 0 3px rgba(155,213,255,.2),inset 0 1px rgba(255,255,255,.2)}
+  .update-row{padding:0 16px 16px;gap:12px}
+  .update-btn{min-height:44px;border-radius:13px;border-color:rgba(219,240,255,.24);background:rgba(230,243,255,.12);box-shadow:inset 0 1px rgba(255,255,255,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  .update-status{color:#bed0df}
   .catalog-heading{display:flex;padding:0 20px 10px;color:#bed0df;font-size:11px}
   .catalog{display:flex;gap:10px;overflow-x:auto;padding:0 16px 17px;scroll-snap-type:x proximity;scrollbar-width:none}
   .catalog::-webkit-scrollbar{display:none}
@@ -99,6 +106,7 @@ video{width:100%;height:100%;object-fit:contain;display:block}
   <aside class="sidebar">
     <div class="brand"><div class="brand-mark">NARTO<span>.</span>PLAYER</div><small>Koleksi drama</small></div>
     <div class="search"><label for="searchInput">Cari judul</label><input id="searchInput" type="search" placeholder="Cari drama..." autocomplete="off"></div>
+    <div class="update-row"><button class="update-btn" id="updateBtn" type="button">Update katalog</button><span class="update-status" id="updateStatus" role="status">Otomatis tiap jam</span></div>
     <div class="catalog-heading"><span>Jelajahi</span><span id="catalogStats">Memuat...</span></div>
     <div class="catalog" id="catalogList"></div>
   </aside>
@@ -121,6 +129,6 @@ video{width:100%;height:100%;object-fit:contain;display:block}
     </div>
   </main>
 </div>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
