@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narto Player</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+:root{--bg:#0b0d12;--panel:#11151d;--line:#282d37;--text:#f2f2f0;--muted:#9299a5;--accent:#e64b45}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh;display:grid;grid-template-columns:300px minmax(0,1fr)}
+.sidebar{background:var(--panel);border-right:1px solid var(--line);height:100vh;position:sticky;top:0;display:flex;flex-direction:column;min-width:0}
+.brand{padding:27px 24px 22px;border-bottom:1px solid var(--line)}
+.brand-mark{font-size:21px;font-weight:800;letter-spacing:-.06em}.brand-mark span{color:var(--accent)}
+.brand small{display:block;margin-top:6px;color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.search{padding:22px 16px 15px}
+.search label,.section-label{display:block;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.search input{width:100%;height:42px;padding:0 14px;border:1px solid var(--line);border-radius:8px;outline:0;background:#0b0e14;color:var(--text)}
+.search input:focus{border-color:var(--accent)}
+.catalog-heading{padding:0 20px 10px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+.catalog{overflow-y:auto;padding:0 8px 16px;scrollbar-color:#3b424e transparent;flex:1}
+.drama{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:9px;border:0;border-radius:9px;background:transparent;color:var(--text)}
+.drama:hover,.drama:focus-visible{background:#202630;outline:0}.drama.active{background:#26252b}
+.drama img{width:43px;height:59px;object-fit:cover;border-radius:4px;background:#252933;flex:none}
+.drama strong{font-size:13px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.drama small{display:block;color:var(--muted);margin-top:5px;font-size:11px}
+.main{min-width:0}.topbar{height:74px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 36px;justify-content:space-between}
+.topbar span{color:var(--muted);font-size:12px;letter-spacing:.13em;text-transform:uppercase}.topbar b{font-size:12px;font-weight:500;color:var(--muted)}
+.workspace{max-width:1180px;margin:auto;padding:32px 36px 80px}
+.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;margin:0 0 9px}
+h1{font-size:clamp(25px,3vw,39px);line-height:1.15;letter-spacing:-.045em;margin:0 0 8px}
+.subhead{margin:0 0 24px;color:var(--muted);font-size:13px}
+.screen{background:#050507;position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.22)}
+video{width:100%;height:100%;object-fit:contain;display:block}
+.screen-message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:rgba(5,5,7,.8);color:#ddd;font-size:14px;line-height:1.6}
+.screen-message.hidden{display:none}
+.player-tools{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:21px 0 25px;border-bottom:1px solid var(--line)}
+.now-playing{min-width:0}.now-playing small{display:block;color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}.now-playing strong{font-size:16px}
+.transport{display:flex;gap:8px}.transport button{border:1px solid var(--line);background:#191e27;color:var(--text);border-radius:7px;padding:10px 15px;font-size:12px;font-weight:600;transition:background .15s,border-color .15s}
+.transport button:hover:not(:disabled){background:#292f3a;border-color:#48505e}.transport button:disabled{opacity:.4;cursor:default}
+.episodes-head{display:flex;align-items:baseline;justify-content:space-between;margin:30px 0 15px}.episodes-head h2{margin:0;font-size:18px;letter-spacing:-.02em}.episodes-head span{font-size:12px;color:var(--muted)}
+.episodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:9px}
+.ep{min-height:56px;background:#171c24;border:1px solid var(--line);border-radius:7px;color:#d5d9df;font-size:12px;text-align:left;padding:10px 12px;transition:background .15s,border-color .15s}
+.ep:hover{border-color:#6c747f}.ep.active{background:#3a2228;border-color:var(--accent);color:#fff}.ep span{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}.ep.active span{color:#e5a6a3}
+.empty{color:var(--muted);font-size:13px;padding:18px 10px}
+@media(max-width:800px), (max-width:950px) and (pointer:coarse){
+  :root{--bg:#07111e;--panel:#101b2b;--line:rgba(201,229,255,.16);--text:#f7fbff;--muted:#aebfd0;--accent:#a9dcff}
+  body{background:radial-gradient(ellipse 90% 36% at 80% 4%,rgba(66,112,176,.28),transparent 80%),radial-gradient(ellipse 80% 35% at 8% 54%,rgba(49,89,138,.12),transparent 80%),var(--bg)}
+  button,input{touch-action:manipulation}
+  .app{display:block}
+  .sidebar{height:auto;position:relative;border:0;background:linear-gradient(145deg,rgba(36,61,91,.44),rgba(16,30,49,.2));box-shadow:inset 0 -1px rgba(220,239,255,.12);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);padding-top:env(safe-area-inset-top)}
+  .brand{padding:20px 20px 17px;border:0}
+  .brand-mark{font-size:22px;letter-spacing:-.065em}
+  .brand small{display:block;color:#bed0df;font-size:10px;letter-spacing:.16em;margin-top:5px}
+  .search{padding:0 16px 13px}
+  .search label{margin:0 0 8px 4px;color:#c0d3e4;font-size:11px}
+  .search input{height:50px;border-radius:15px;padding:0 16px;border:1px solid rgba(226,242,255,.24);background:rgba(227,242,255,.09);box-shadow:inset 0 1px rgba(255,255,255,.12),0 8px 26px rgba(2,10,22,.12);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-size:16px;color:var(--text)}
+  .search input::placeholder{color:#aabac9}
+  .search input:focus{border-color:#c3e7ff;box-shadow:0 0 0 3px rgba(155,213,255,.2),inset 0 1px rgba(255,255,255,.2)}
+  .catalog-heading{display:flex;padding:0 20px 10px;color:#bed0df;font-size:11px}
+  .catalog{display:flex;gap:10px;overflow-x:auto;padding:0 16px 17px;scroll-snap-type:x proximity;scrollbar-width:none}
+  .catalog::-webkit-scrollbar{display:none}
+  .drama{width:185px;min-width:185px;min-height:74px;gap:10px;padding:7px;border-radius:16px;border:1px solid rgba(226,242,255,.17);background:linear-gradient(135deg,rgba(232,244,255,.13),rgba(224,237,255,.05));box-shadow:inset 0 1px rgba(255,255,255,.13);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);scroll-snap-align:start}
+  .drama:hover,.drama:focus-visible{background:rgba(227,242,255,.17);outline:2px solid var(--accent);outline-offset:2px}
+  .drama.active{background:linear-gradient(135deg,rgba(168,220,255,.28),rgba(176,211,255,.09));border-color:rgba(198,232,255,.53)}
+  .drama img{width:43px;height:59px;border-radius:10px}
+  .drama strong{font-size:12px;line-height:1.3}
+  .drama small{font-size:10px;margin-top:4px;color:#bacbd9}
+  .main{background:transparent}
+  .topbar{display:none}
+  .workspace{padding:24px 16px calc(48px + env(safe-area-inset-bottom))}
+  .eyebrow{font-size:10px;color:#b4e2ff;margin-bottom:9px}
+  h1{font-size:clamp(25px,7vw,32px);line-height:1.13;letter-spacing:-.045em;margin-bottom:9px}
+  .subhead{font-size:13px;color:#b8c8d8;margin-bottom:18px}
+  .screen{aspect-ratio:4/5;max-height:68svh;border-radius:23px;border:1px solid rgba(219,240,255,.22);box-shadow:0 25px 60px rgba(1,8,18,.45),inset 0 1px rgba(255,255,255,.15)}
+  .screen-message{font-size:14px}
+  .player-tools{align-items:center;gap:8px;padding:17px 0 20px;border-color:var(--line)}
+  .now-playing small{font-size:10px;color:#b3c6d8}
+  .now-playing strong{font-size:15px}
+  .transport{gap:8px;flex:none}
+  .transport button{min-height:44px;padding:8px 11px;border-radius:13px;background:rgba(230,243,255,.12);border-color:rgba(219,240,255,.22);box-shadow:inset 0 1px rgba(255,255,255,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-size:11px}
+  .transport button:active:not(:disabled),.ep:active,.drama:active{transform:scale(.97)}
+  .episodes-head{margin:26px 0 14px}.episodes-head h2{font-size:17px}.episodes-head span{font-size:11px;color:#b5c7d8}
+  .episodes{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:9px}
+  .ep{min-height:58px;border-radius:14px;border-color:rgba(220,240,255,.18);background:linear-gradient(140deg,rgba(235,245,255,.12),rgba(232,243,255,.05));box-shadow:inset 0 1px rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:var(--text);font-size:13px}
+  .ep span{color:#b7c8d7}
+  .ep.active{background:linear-gradient(145deg,rgba(161,217,255,.4),rgba(100,157,214,.2));border-color:#b9e5ff;color:#fff}
+  .ep.active span{color:#e3f4ff}
+  .empty{min-width:100%;color:#bed0df}
+}
+@media(max-width:800px) and (prefers-reduced-motion:reduce), (max-width:950px) and (pointer:coarse) and (prefers-reduced-motion:reduce){.drama,.ep,.transport button{transition:none}.transport button:active:not(:disabled),.ep:active,.drama:active{transform:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">NARTO<span>.</span>PLAYER</div><small>Koleksi drama</small></div>
+    <div class="search"><label for="searchInput">Cari judul</label><input id="searchInput" type="search" placeholder="Cari drama..." autocomplete="off"></div>
+    <div class="catalog-heading"><span>Jelajahi</span><span id="catalogStats">Memuat...</span></div>
+    <div class="catalog" id="catalogList"></div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><span>Ruang putar</span><b>Drama pilihanmu, satu tempat</b></div>
+    <div class="workspace">
+      <p class="eyebrow">Sedang diputar</p>
+      <h1 id="dramaTitle">Pilih drama</h1>
+      <p class="subhead" id="dramaSubtitle">Pilih judul dari katalog untuk mulai menonton.</p>
+      <div class="screen" id="playerWrap">
+        <video id="video" controls playsinline preload="metadata"></video>
+        <div class="screen-message" id="screenMessage" role="status">Memuat katalog...</div>
+      </div>
+      <div class="player-tools">
+        <div class="now-playing"><small>Episode aktif</small><strong id="episodeBadge">—</strong></div>
+        <div class="transport"><button id="prevBtn" type="button" aria-label="Episode sebelumnya">← Sebelumnya</button><button id="nextBtn" type="button" aria-label="Episode berikutnya">Berikutnya →</button></div>
+      </div>
+      <div class="episodes-head"><h2>Daftar episode</h2><span id="episodeCount">0 episode</span></div>
+      <div class="episodes" id="epStrip"></div>
+    </div>
+  </main>
+</div>
+<script src="app.js?v=5"></script>
+</body>
+</html>

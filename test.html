@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><head><title>Test</title></head>
+<body><h1 id="t">Loading...</h1>
+<script>
+document.getElementById('t').textContent = 'JS works! ' + location.href;
+fetch('http://localhost:8902/api/catalog?limit=1').then(r=>r.json()).then(d=>{
+  document.getElementById('t').textContent += ' | Dramas: ' + d.total;
+}).catch(e=>{document.getElementById('t').textContent += ' | ERR: '+e.message;});
+</script>
+</body></html>
