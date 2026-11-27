@@ -15,3 +15,5 @@ Buka `http://localhost:8902`. Node.js diperlukan; tidak ada paket yang perlu dip
 Narto Drama tidak menyediakan daftar lengkap yang dapat diverifikasi lewat halaman utama ini. Jumlah lokal adalah jumlah judul yang sudah tersimpan, bukan klaim cakupan 100%.
 
 Tampilan kaca dan tata letak video tinggi berlaku pada layar mobile. CSS desktop tetap menggunakan tata letak sebelumnya.
+
+Daftar episode menampilkan semua nomor dari sumber; episode tanpa URL ditandai tidak tersedia. Bila tautan video kedaluwarsa, tombol **Coba lagi** mengambil ulang daftar episode. Ketersediaan video tetap bergantung pada host sumber.

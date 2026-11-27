@@ -40,11 +40,11 @@ async function getEpisodes(slug) {
   if (upstream.statusCode !== 200) throw new Error(`Sumber episode HTTP ${upstream.statusCode}`);
   const match = html.match(/episodeItemsRaw\s*=\s*(\[.*?\]);/s);
   if (!match) throw new Error('Daftar episode tidak ditemukan');
-  return JSON.parse(match[1]).filter(ep => ep.is_playable && (ep.direct_play_url || ep.play_url)).map(ep => ({
+  return JSON.parse(match[1]).map(ep => ({
     number: ep.number || ep.route_episode_number,
     title: ep.title || `Episode ${ep.number}`,
-    url: ep.direct_play_url || ep.play_url,
-    isHls: ep.direct_play_is_hls !== false,
+    url: ep.is_playable ? (ep.direct_play_url || ep.play_url || '') : '',
+    isHls: ep.direct_play_url ? ep.direct_play_is_hls !== false : /\.m3u8(?:\?|$)/.test(ep.play_url || ''),
     thumb: ep.thumb_url || ''
   }));
 }

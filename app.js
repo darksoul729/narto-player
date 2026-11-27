@@ -12,12 +12,20 @@ let catalogRequest = 0;
 let displayedTotal = 0;
 
 function message(text) {
-  $('screenMessage').textContent = text;
+  $('screenMessageText').textContent = text;
   $('screenMessage').classList.remove('hidden');
 }
 
 function hideMessage() {
   $('screenMessage').classList.add('hidden');
+  $('retryBtn').hidden = true;
+}
+
+function showAction(label, action) {
+  const button = $('retryBtn');
+  button.textContent = label;
+  button.onclick = action;
+  button.hidden = false;
 }
 
 async function json(url) {
@@ -68,14 +76,14 @@ async function loadCatalog(query = '') {
       ? `${data.total.toLocaleString('id-ID')} ditampilkan`
       : `${data.total.toLocaleString('id-ID')} tersimpan`;
     renderCatalog();
-    if (!currentDrama && catalog.length) selectDrama(catalog.length > 1 ? catalog[1] : catalog[0]);
+    if (!currentDrama && catalog.length) selectDrama(catalog[0], null, false);
     if (!catalog.length && !currentDrama) message('Tidak ada drama yang tersedia.');
   } catch (error) {
     if (requestId === catalogRequest) message(`Katalog gagal dimuat: ${error.message}`);
   }
 }
 
-async function selectDrama(drama) {
+async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
   const requestId = ++selection;
   currentDrama = drama;
   episodes = [];
@@ -83,7 +91,9 @@ async function selectDrama(drama) {
   video.pause();
   if (hls) { hls.destroy(); hls = null; }
   video.removeAttribute('src');
+  video.poster = drama.poster;
   video.load();
+  $('retryBtn').hidden = true;
   $('dramaTitle').textContent = drama.title;
   $('dramaSubtitle').textContent = 'Mengambil daftar episode...';
   $('episodeBadge').textContent = '—';
@@ -94,10 +104,20 @@ async function selectDrama(drama) {
     const data = await json(`${API}/api/episodes?slug=${encodeURIComponent(drama.slug)}`);
     if (requestId !== selection) return;
     episodes = data.episodes || [];
-    $('dramaSubtitle').textContent = `${episodes.length} episode tersedia`;
+    const playable = episodes.filter(episode => episode.url).length;
+    $('dramaSubtitle').textContent = `${episodes.length} episode · ${playable} bisa diputar`;
     renderEpisodes();
-    if (episodes.length) playEpisode(0);
-    else message('Episode belum tersedia untuk judul ini.');
+    const firstPlayable = episodes.findIndex(episode => episode.url);
+    const requested = episodes.findIndex(episode => episode.number === episodeNumber && episode.url);
+    if (!autoPlay && firstPlayable >= 0) {
+      currentEp = firstPlayable;
+      $('episodeBadge').textContent = `Episode ${episodes[firstPlayable].number}`;
+      renderEpisodes();
+      message('Pilih episode untuk mulai menonton.');
+      showAction('Putar episode', () => playEpisode(firstPlayable));
+    } else if (requested >= 0) playEpisode(requested);
+    else if (firstPlayable >= 0) playEpisode(firstPlayable);
+    else message('Belum ada episode yang bisa diputar dari sumber.');
   } catch (error) {
     if (requestId === selection) message(`Episode gagal dimuat: ${error.message}`);
   }
@@ -107,13 +127,14 @@ function renderEpisodes() {
   const strip = $('epStrip');
   strip.replaceChildren();
   $('episodeCount').textContent = `${episodes.length} episode`;
-  $('prevBtn').disabled = !episodes.length || currentEp === 0;
-  $('nextBtn').disabled = !episodes.length || currentEp === episodes.length - 1;
+  $('prevBtn').disabled = !episodes.slice(0, currentEp).some(episode => episode.url);
+  $('nextBtn').disabled = !episodes.slice(currentEp + 1).some(episode => episode.url);
   for (let i = 0; i < episodes.length; i++) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `ep${i === currentEp ? ' active' : ''}`;
-    button.setAttribute('aria-label', `Putar episode ${episodes[i].number || i + 1}`);
+    button.className = `ep${i === currentEp ? ' active' : ''}${episodes[i].url ? '' : ' unavailable'}`;
+    button.disabled = !episodes[i].url;
+    button.setAttribute('aria-label', `Episode ${episodes[i].number || i + 1}${episodes[i].url ? '' : ' tidak tersedia'}`);
     const label = document.createElement('span');
     label.textContent = 'EPISODE';
     button.append(label, String(episodes[i].number || i + 1));
@@ -123,12 +144,13 @@ function renderEpisodes() {
 }
 
 function playEpisode(index) {
-  if (index < 0 || index >= episodes.length) return;
+  if (index < 0 || index >= episodes.length || !episodes[index].url) return;
   currentEp = index;
   const episode = episodes[index];
   $('episodeBadge').textContent = `Episode ${episode.number || index + 1}`;
   renderEpisodes();
   message('Menyiapkan video...');
+  $('retryBtn').hidden = true;
   video.pause();
   if (hls) { hls.destroy(); hls = null; }
   video.removeAttribute('src');
@@ -137,25 +159,47 @@ function playEpisode(index) {
   if (episode.isHls && window.Hls?.isSupported()) {
     hls = new Hls();
     hls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) message('Video tidak tersedia dari sumber saat ini. Pilih episode atau judul lain.');
+      if (data.fatal) playbackError();
     });
     hls.loadSource(source);
     hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => hideMessage()));
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(playRejection));
   } else if (!episode.isHls || video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = source;
-    video.play().catch(() => hideMessage());
+    video.play().catch(playRejection);
   } else {
     message('Browser ini tidak mendukung HLS. Coba browser terbaru.');
   }
 }
 
+function playRejection(error) {
+  if (error.name === 'NotAllowedError') {
+    message('Video siap. Tekan tombol putar untuk memulai.');
+    showAction('Putar video', () => video.play().catch(playRejection));
+  }
+  else if (error.name !== 'AbortError') playbackError();
+}
+
+function playbackError() {
+  message('Tautan video dari sumber gagal atau kedaluwarsa. Coba ambil ulang tautannya.');
+  showAction('Coba lagi', () => selectDrama(currentDrama, episodes[currentEp]?.number));
+}
+
 video.addEventListener('loadeddata', hideMessage);
 video.addEventListener('playing', hideMessage);
-video.addEventListener('error', () => message('Video gagal diputar. Pilih episode atau judul lain.'));
-video.addEventListener('ended', () => playEpisode(currentEp + 1));
-$('prevBtn').onclick = () => playEpisode(currentEp - 1);
-$('nextBtn').onclick = () => playEpisode(currentEp + 1);
+video.addEventListener('error', playbackError);
+video.addEventListener('ended', () => {
+  const next = episodes.findIndex((episode, index) => index > currentEp && episode.url);
+  if (next >= 0) playEpisode(next);
+});
+$('prevBtn').onclick = () => {
+  const previous = episodes.findLastIndex((episode, index) => index < currentEp && episode.url);
+  if (previous >= 0) playEpisode(previous);
+};
+$('nextBtn').onclick = () => {
+  const next = episodes.findIndex((episode, index) => index > currentEp && episode.url);
+  if (next >= 0) playEpisode(next);
+};
 $('searchInput').oninput = event => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadCatalog(event.target.value.trim()), 250);
