@@ -17,6 +17,30 @@ let displayedTotal = 0;
 let playRequest = 0;
 let playbackState = null;
 
+function setView(view) {
+  document.body.dataset.view = view;
+  if (view === 'catalog') {
+    video.pause();
+    if (auxAudio) auxAudio.pause();
+    updateMiniDock();
+  }
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function updateMiniDock() {
+  const dock = $('miniDock');
+  if (!dock) return;
+  if (!currentDrama || document.body.dataset.view === 'watch') {
+    dock.hidden = true;
+    return;
+  }
+  $('miniPoster').src = currentDrama.poster || '';
+  $('miniTitle').textContent = currentDrama.title;
+  const ep = episodes[currentEp];
+  $('miniEp').textContent = ep ? (ep.title || `Episode ${ep.number}`) : 'Lanjutkan menonton';
+  dock.hidden = false;
+}
+
 function message(text) {
   $('screenMessageText').textContent = text;
   $('screenMessage').classList.remove('hidden');
@@ -150,19 +174,31 @@ function renderResSelector(source, activeUrl) {
   };
 }
 
+function renderHero(query) {
+  const hero = $('heroCard');
+  if (!hero) return;
+  const featured = catalog[0];
+  if (query || !featured) {
+    hero.hidden = true;
+    return;
+  }
+  $('heroPoster').src = featured.poster || '';
+  $('heroBackdrop').src = featured.poster || '';
+  $('heroTitle').textContent = featured.title;
+  $('heroPlayBtn').onclick = () => openDrama(featured);
+  hero.hidden = false;
+}
+
 function renderCatalog() {
   const list = $('catalogList');
   list.replaceChildren();
   const q = $('searchInput').value.trim();
-  document.querySelector('.container')?.classList.toggle('searching', Boolean(q));
-  if ($('catalogHeading')) {
-    $('catalogHeading').textContent = q ? `Hasil pencarian “${q}”` : 'Jelajahi drama';
-  }
-  if ($('catalogHint')) {
-    $('catalogHint').textContent = q
-      ? `${catalog.length} judul ditemukan`
-      : `${catalogTotal.toLocaleString('id-ID')} judul tersimpan`;
-  }
+  renderHero(q);
+  $('catalogHeading').textContent = q ? `Hasil untuk “${q}”` : 'Katalog Drama';
+  $('catalogHint').textContent = q
+    ? `${catalog.length} judul ditemukan`
+    : `${catalogTotal.toLocaleString('id-ID')} judul tersedia`;
+
   if (!catalog.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
@@ -173,30 +209,32 @@ function renderCatalog() {
   for (const drama of catalog) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `drama${currentDrama?.slug === drama.slug ? ' active' : ''}`;
-    const posterWrap = document.createElement('div');
-    posterWrap.className = 'drama-poster';
-    const tag = document.createElement('span');
-    tag.className = 'drama-tag';
-    tag.textContent = 'Diputar';
+    button.className = `drama-card${currentDrama?.slug === drama.slug ? ' active' : ''}`;
+    const thumbBox = document.createElement('div');
+    thumbBox.className = 'drama-thumb-box';
+    const badge = document.createElement('span');
+    badge.className = 'drama-badge';
+    badge.textContent = 'Diputar';
+    const playChip = document.createElement('span');
+    playChip.className = 'drama-play-chip';
+    playChip.textContent = '▶';
     const image = document.createElement('img');
     image.src = drama.poster;
-    image.alt = '';
+    image.alt = drama.title;
     image.loading = 'lazy';
     image.referrerPolicy = 'no-referrer';
-    posterWrap.append(tag, image);
-    const body = document.createElement('div');
-    body.className = 'drama-body';
+    thumbBox.append(badge, playChip, image);
+
+    const meta = document.createElement('div');
+    meta.className = 'drama-meta';
     const title = document.createElement('strong');
     title.textContent = drama.title;
     const hint = document.createElement('small');
-    hint.textContent = 'Tonton sekarang';
-    body.append(title, hint);
-    button.append(posterWrap, body);
-    button.onclick = () => {
-      selectDrama(drama);
-      $('playerWrap')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    };
+    hint.textContent = 'Tap untuk menonton';
+    meta.append(title, hint);
+
+    button.append(thumbBox, meta);
+    button.onclick = () => openDrama(drama);
     list.append(button);
   }
   if (!q && catalog.length < catalogTotal) {
@@ -219,14 +257,19 @@ async function loadCatalog(query = '', page = 1, append = false) {
     catalog = append ? [...catalog, ...data.items] : data.items;
     if (!query) displayedTotal = data.total;
     $('catalogStats').textContent = query
-      ? `${data.total.toLocaleString('id-ID')} ditampilkan`
-      : `${data.total.toLocaleString('id-ID')} tersimpan`;
+      ? `${data.total.toLocaleString('id-ID')} hasil`
+      : `${data.total.toLocaleString('id-ID')} judul`;
     renderCatalog();
-    if (!currentDrama && catalog.length) selectDrama(catalog[0], null, false);
-    if (!catalog.length && !currentDrama) message('Tidak ada drama yang tersedia.');
   } catch (error) {
-    if (requestId === catalogRequest) message(`Katalog gagal dimuat: ${error.message}`);
+    if (requestId === catalogRequest) $('catalogHint').textContent = `Gagal memuat katalog: ${error.message}`;
   }
+}
+
+function openDrama(drama, episodeNumber = null) {
+  if (location.hash !== `#watch=${encodeURIComponent(drama.slug)}`) {
+    history.pushState({ view: 'watch', slug: drama.slug }, '', `#watch=${encodeURIComponent(drama.slug)}`);
+  }
+  selectDrama(drama, episodeNumber, true);
 }
 
 async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
@@ -236,10 +279,9 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
   currentDrama = drama;
   episodes = [];
   currentEp = 0;
+  setView('watch');
   resetMediaElement();
   video.poster = drama.poster;
-  if ($('dramaThumb')) $('dramaThumb').src = drama.poster || '';
-  if ($('ambientPoster')) $('ambientPoster').src = drama.poster || '';
   $('retryBtn').hidden = true;
   $('resSelect').hidden = true;
   $('subSelect').hidden = true;
@@ -253,7 +295,7 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
     const data = await json(`${API}/api/episodes?slug=${encodeURIComponent(drama.slug)}`);
     if (requestId !== selection) return;
     episodes = data.episodes || [];
-    $('dramaSubtitle').textContent = `${episodes.length} episode`;
+    $('dramaSubtitle').textContent = `${episodes.length} episode tersedia`;
     renderEpisodes();
     const requested = episodes.findIndex(episode => episode.number === episodeNumber || episode.routeNumber === episodeNumber);
     if (!autoPlay && episodes.length) {
@@ -274,7 +316,7 @@ function renderEpisodes() {
   const strip = $('epStrip');
   const ranges = $('epRanges');
   strip.replaceChildren();
-  $('episodeCount').textContent = `${episodes.length} episode`;
+  $('episodeCount').textContent = `${episodes.length} ep`;
   $('prevBtn').disabled = currentEp <= 0;
   $('nextBtn').disabled = currentEp >= episodes.length - 1;
   for (let i = 0; i < episodes.length; i++) {
@@ -282,9 +324,7 @@ function renderEpisodes() {
     button.type = 'button';
     button.className = `ep${i === currentEp ? ' active' : ''}`;
     button.setAttribute('aria-label', episodes[i].title || `Episode ${episodes[i].number || i + 1}`);
-    const label = document.createElement('span');
-    label.textContent = 'EPISODE';
-    button.append(label, String(episodes[i].number || i + 1));
+    button.textContent = String(episodes[i].number || i + 1);
     button.onclick = () => playEpisode(i);
     strip.append(button);
   }
@@ -300,7 +340,7 @@ function renderEpisodes() {
         btn.textContent = `${episodes[start].number || start + 1}–${episodes[end - 1].number || end}`;
         btn.onclick = () => {
           const target = strip.children[start];
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          if (target) strip.scrollTop = Math.max(0, target.offsetTop - strip.offsetTop);
         };
         ranges.append(btn);
       }
@@ -400,6 +440,7 @@ async function playEpisode(index) {
   playbackState = null;
   $('episodeBadge').textContent = episode.title || `Episode ${episode.number || index + 1}`;
   renderEpisodes();
+  updateMiniDock();
   message('Menyiapkan video...');
   $('retryBtn').hidden = true;
   $('resSelect').hidden = true;
@@ -484,30 +525,45 @@ video.addEventListener('error', () => {
 video.addEventListener('ended', () => {
   if (currentEp + 1 < episodes.length) playEpisode(currentEp + 1);
 });
-$('prevBtn').onclick = () => {
-  if (currentEp > 0) playEpisode(currentEp - 1);
+
+$('prevBtn').onclick = () => { if (currentEp > 0) playEpisode(currentEp - 1); };
+$('nextBtn').onclick = () => { if (currentEp + 1 < episodes.length) playEpisode(currentEp + 1); };
+
+function goCatalog() {
+  if (location.hash.startsWith('#watch=')) history.replaceState(null, '', location.pathname + location.search);
+  setView('catalog');
+}
+$('backBtn').onclick = goCatalog;
+$('brandBtn').onclick = goCatalog;
+$('miniResumeBtn').onclick = () => {
+  if (!currentDrama) return;
+  history.pushState({ view: 'watch', slug: currentDrama.slug }, '', `#watch=${encodeURIComponent(currentDrama.slug)}`);
+  setView('watch');
 };
-$('nextBtn').onclick = () => {
-  if (currentEp + 1 < episodes.length) playEpisode(currentEp + 1);
-};
+window.addEventListener('popstate', () => {
+  if (!location.hash.startsWith('#watch=')) setView('catalog');
+});
+
 $('searchInput').oninput = event => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => loadCatalog(event.target.value.trim()), 250);
+  const value = event.target.value.trim();
+  if (value && document.body.dataset.view === 'watch') setView('catalog');
+  searchTimer = setTimeout(() => loadCatalog(value), 250);
 };
 
 $('updateBtn').onclick = async () => {
   const button = $('updateBtn');
   button.disabled = true;
-  $('updateStatus').textContent = 'Memeriksa sumber...';
+  $('updateStatus').textContent = 'Memeriksa...';
   try {
     const query = $('searchInput').value.trim();
     const response = await fetch(`${API}/api/catalog/update?q=${encodeURIComponent(query)}`, { method: 'POST' });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-    $('updateStatus').textContent = result.added ? `+${result.added} judul baru` : 'Sudah terbaru';
+    $('updateStatus').textContent = result.added ? `+${result.added} baru` : 'Terbaru';
     await loadCatalog($('searchInput').value.trim());
   } catch (error) {
-    $('updateStatus').textContent = `Update gagal: ${error.message}`;
+    $('updateStatus').textContent = `Gagal: ${error.message}`;
   } finally {
     button.disabled = false;
   }
