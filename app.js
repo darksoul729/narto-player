@@ -108,20 +108,18 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
     const data = await json(`${API}/api/episodes?slug=${encodeURIComponent(drama.slug)}`);
     if (requestId !== selection) return;
     episodes = data.episodes || [];
-    const playable = episodes.filter(episode => episode.url).length;
-    $('dramaSubtitle').textContent = `${episodes.length} episode · ${playable} bisa diputar`;
+    $('dramaSubtitle').textContent = `${episodes.length} episode`;
     renderEpisodes();
-    const firstPlayable = episodes.findIndex(episode => episode.url);
-    const requested = episodes.findIndex(episode => episode.number === episodeNumber && episode.url);
-    if (!autoPlay && firstPlayable >= 0) {
-      currentEp = firstPlayable;
-      $('episodeBadge').textContent = `Episode ${episodes[firstPlayable].number}`;
+    const requested = episodes.findIndex(episode => episode.number === episodeNumber);
+    if (!autoPlay && episodes.length) {
+      currentEp = 0;
+      $('episodeBadge').textContent = `Episode ${episodes[0].number}`;
       renderEpisodes();
       message('Pilih episode untuk mulai menonton.');
-      showAction('Putar episode', () => playEpisode(firstPlayable));
+      showAction('Putar episode', () => playEpisode(0));
     } else if (requested >= 0) playEpisode(requested);
-    else if (firstPlayable >= 0) playEpisode(firstPlayable);
-    else message('Belum ada episode yang bisa diputar dari sumber.');
+    else if (episodes.length) playEpisode(0);
+    else message('Belum ada episode dari sumber.');
   } catch (error) {
     if (requestId === selection) message(`Episode gagal dimuat: ${error.message}`);
   }
@@ -131,14 +129,13 @@ function renderEpisodes() {
   const strip = $('epStrip');
   strip.replaceChildren();
   $('episodeCount').textContent = `${episodes.length} episode`;
-  $('prevBtn').disabled = !episodes.slice(0, currentEp).some(episode => episode.url);
-  $('nextBtn').disabled = !episodes.slice(currentEp + 1).some(episode => episode.url);
+  $('prevBtn').disabled = currentEp <= 0;
+  $('nextBtn').disabled = currentEp >= episodes.length - 1;
   for (let i = 0; i < episodes.length; i++) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `ep${i === currentEp ? ' active' : ''}${episodes[i].url ? '' : ' unavailable'}`;
-    button.disabled = !episodes[i].url;
-    button.setAttribute('aria-label', `Episode ${episodes[i].number || i + 1}${episodes[i].url ? '' : ' tidak tersedia'}`);
+    button.className = `ep${i === currentEp ? ' active' : ''}`;
+    button.setAttribute('aria-label', `Episode ${episodes[i].number || i + 1}`);
     const label = document.createElement('span');
     label.textContent = 'EPISODE';
     button.append(label, String(episodes[i].number || i + 1));
@@ -148,7 +145,7 @@ function renderEpisodes() {
 }
 
 async function playEpisode(index) {
-  if (index < 0 || index >= episodes.length || !episodes[index].url) return;
+  if (index < 0 || index >= episodes.length) return;
   const requestId = ++playRequest;
   transcoding = false;
   currentEp = index;
@@ -217,16 +214,13 @@ video.addEventListener('loadeddata', () => {
 video.addEventListener('playing', () => { if (video.videoWidth) hideMessage(); });
 video.addEventListener('error', playbackError);
 video.addEventListener('ended', () => {
-  const next = episodes.findIndex((episode, index) => index > currentEp && episode.url);
-  if (next >= 0) playEpisode(next);
+  if (currentEp + 1 < episodes.length) playEpisode(currentEp + 1);
 });
 $('prevBtn').onclick = () => {
-  const previous = episodes.findLastIndex((episode, index) => index < currentEp && episode.url);
-  if (previous >= 0) playEpisode(previous);
+  if (currentEp > 0) playEpisode(currentEp - 1);
 };
 $('nextBtn').onclick = () => {
-  const next = episodes.findIndex((episode, index) => index > currentEp && episode.url);
-  if (next >= 0) playEpisode(next);
+  if (currentEp + 1 < episodes.length) playEpisode(currentEp + 1);
 };
 $('searchInput').oninput = event => {
   clearTimeout(searchTimer);
