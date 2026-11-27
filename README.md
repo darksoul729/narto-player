@@ -1,4 +1,4 @@
-# Narto Player
+# Panzek Player
 
 Player drama lokal dengan katalog tersimpan dan pencarian langsung dari Narto Drama.
 

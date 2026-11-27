@@ -153,6 +153,16 @@ function renderResSelector(source, activeUrl) {
 function renderCatalog() {
   const list = $('catalogList');
   list.replaceChildren();
+  const q = $('searchInput').value.trim();
+  document.querySelector('.container')?.classList.toggle('searching', Boolean(q));
+  if ($('catalogHeading')) {
+    $('catalogHeading').textContent = q ? `Hasil pencarian “${q}”` : 'Jelajahi drama';
+  }
+  if ($('catalogHint')) {
+    $('catalogHint').textContent = q
+      ? `${catalog.length} judul ditemukan`
+      : `${catalogTotal.toLocaleString('id-ID')} judul tersimpan`;
+  }
   if (!catalog.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
@@ -164,22 +174,32 @@ function renderCatalog() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `drama${currentDrama?.slug === drama.slug ? ' active' : ''}`;
+    const posterWrap = document.createElement('div');
+    posterWrap.className = 'drama-poster';
+    const tag = document.createElement('span');
+    tag.className = 'drama-tag';
+    tag.textContent = 'Diputar';
     const image = document.createElement('img');
     image.src = drama.poster;
     image.alt = '';
     image.loading = 'lazy';
     image.referrerPolicy = 'no-referrer';
-    const text = document.createElement('div');
+    posterWrap.append(tag, image);
+    const body = document.createElement('div');
+    body.className = 'drama-body';
     const title = document.createElement('strong');
     title.textContent = drama.title;
     const hint = document.createElement('small');
-    hint.textContent = 'Tonton episode';
-    text.append(title, hint);
-    button.append(image, text);
-    button.onclick = () => selectDrama(drama);
+    hint.textContent = 'Tonton sekarang';
+    body.append(title, hint);
+    button.append(posterWrap, body);
+    button.onclick = () => {
+      selectDrama(drama);
+      $('playerWrap')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
     list.append(button);
   }
-  if (!$('searchInput').value.trim() && catalog.length < catalogTotal) {
+  if (!q && catalog.length < catalogTotal) {
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'catalog-more';
@@ -250,6 +270,7 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
 
 function renderEpisodes() {
   const strip = $('epStrip');
+  const ranges = $('epRanges');
   strip.replaceChildren();
   $('episodeCount').textContent = `${episodes.length} episode`;
   $('prevBtn').disabled = currentEp <= 0;
@@ -264,6 +285,31 @@ function renderEpisodes() {
     button.append(label, String(episodes[i].number || i + 1));
     button.onclick = () => playEpisode(i);
     strip.append(button);
+  }
+  if (ranges) {
+    ranges.replaceChildren();
+    if (episodes.length > 35) {
+      const chunkSize = 30;
+      for (let start = 0; start < episodes.length; start += chunkSize) {
+        const end = Math.min(episodes.length, start + chunkSize);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `ep-range-btn${currentEp >= start && currentEp < end ? ' active' : ''}`;
+        btn.textContent = `${episodes[start].number || start + 1}–${episodes[end - 1].number || end}`;
+        btn.onclick = () => {
+          const target = strip.children[start];
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        };
+        ranges.append(btn);
+      }
+      ranges.hidden = false;
+    } else {
+      ranges.hidden = true;
+    }
+  }
+  const activeBtn = strip.children[currentEp];
+  if (activeBtn && currentEp > 0) {
+    strip.scrollTop = Math.max(0, activeBtn.offsetTop - strip.offsetTop - strip.clientHeight / 2 + activeBtn.clientHeight / 2);
   }
 }
 

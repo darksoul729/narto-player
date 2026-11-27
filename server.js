@@ -635,7 +635,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Narto player http://localhost:${PORT} (${catalog.length} dramas)`);
+  console.log(`Panzek player http://localhost:${PORT} (${catalog.length} dramas)`);
   updateCatalog().catch(error => console.error(`Catalog update failed: ${error.message}`));
 });
 setInterval(() => updateCatalog().catch(error => console.error(`Catalog update failed: ${error.message}`)), 60 * 60 * 1000);
