@@ -16,7 +16,10 @@ const recentSources = new Map();
 const COOKIE = `nd_ck=${process.env.ND_CK || crypto.randomBytes(12).toString('hex')}; nd_lang=id-ID`;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const CDN = 'https://cdn.narto-drama.com';
-const allowedHosts = new Set(['moviebox-stream.narto-drama.com', 'cdn.narto-drama.com']);
+
+function isAllowedMediaUrl(target) {
+  return target.protocol === 'https:' && (target.hostname === 'narto-drama.com' || target.hostname.endsWith('.narto-drama.com'));
+}
 
 function request(target, headers = {}, redirects = 0) {
   return new Promise((resolve, reject) => {
@@ -60,27 +63,47 @@ async function getEpisodes(slug) {
   }));
 }
 
-async function refreshEpisode(slug, number) {
+async function requestEpisodeSource(context, slug, number, options = {}) {
+  const route = `/detail/watch/${slug}/${number}/refresh-source`;
+  const base = context.edge || 'https://narto-drama.com';
+  const prefix = context.useEdge ? '/e/rs' : '';
+  const target = new URL(`${prefix}${route}`, context.useEdge || context.directEdge ? base : 'https://narto-drama.com');
+  const params = { lang: 'id-ID', rs_ctx: context.token, force: '1' };
+  if (options.noCache) params.no_cache = '1';
+  if (options.forceEdge) params.force_edge = '1';
+  target.search = new URLSearchParams(params).toString();
+  const upstream = await request(target.href, { Cookie: COOKIE, 'User-Agent': UA, Accept: 'application/json' });
+  let body = '';
+  for await (const chunk of upstream) body += chunk;
+  if (upstream.statusCode !== 200) throw new Error(`Pembaruan tautan HTTP ${upstream.statusCode}`);
+  let data;
+  try { data = JSON.parse(body); }
+  catch { throw new Error('Pembaruan tautan mengirim respons rusak'); }
+  const url = data.direct_play_url || data.play_url || '';
+  if (!data.ok || !url) throw new Error('Sumber belum menyediakan tautan video baru');
+  return { url, isHls: data.direct_play_url ? data.direct_play_is_hls !== false : /\.m3u8(?:\?|$)/.test(data.play_url || '') };
+}
+
+async function refreshEpisode(slug, number, options = {}) {
   let context = sourceContexts.get(slug);
   if (!context || Date.now() - context.fetchedAt > 5 * 60 * 1000) {
     await getEpisodes(slug);
     context = sourceContexts.get(slug);
   }
-  const route = `/detail/watch/${slug}/${number}/refresh-source`;
-  const base = context.edge || 'https://narto-drama.com';
-  const prefix = context.useEdge ? '/e/rs' : '';
-  const target = new URL(`${prefix}${route}`, context.useEdge || context.directEdge ? base : 'https://narto-drama.com');
-  target.search = new URLSearchParams({ lang: 'id-ID', rs_ctx: context.token, force: '1', no_cache: '1' }).toString();
-  const upstream = await request(target.href, { Cookie: COOKIE, 'User-Agent': UA, Accept: 'application/json' });
-  let body = '';
-  for await (const chunk of upstream) body += chunk;
-  if (upstream.statusCode !== 200) throw new Error(`Pembaruan tautan HTTP ${upstream.statusCode}`);
-  const data = JSON.parse(body);
-  const url = data.direct_play_url || data.play_url || '';
-  if (!data.ok || !url) throw new Error('Sumber belum menyediakan tautan video baru');
-  const source = { url, isHls: data.direct_play_url ? data.direct_play_is_hls !== false : /\.m3u8(?:\?|$)/.test(data.play_url || '') };
-  recentSources.set(`${slug}:${number}`, { ...source, fetchedAt: Date.now() });
-  return source;
+  const attempts = options.noCache || options.forceEdge
+    ? [options]
+    : [{}, { noCache: true }, { noCache: true, forceEdge: true }];
+  let lastError;
+  for (const attempt of attempts) {
+    try {
+      const source = await requestEpisodeSource(context, slug, number, attempt);
+      recentSources.set(`${slug}:${number}`, { ...source, fetchedAt: Date.now() });
+      return source;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 async function searchCatalog(query) {
@@ -146,7 +169,7 @@ function updateCatalog(query = '') {
 
 function proxyUrl(value, source) {
   const target = value.startsWith('/nd1/') ? new URL(value, CDN) : new URL(value, source);
-  if (!allowedHosts.has(target.hostname) || target.protocol !== 'https:') return value;
+  if (!isAllowedMediaUrl(target)) return value;
   return `/proxy?url=${encodeURIComponent(target.href)}`;
 }
 
@@ -202,7 +225,11 @@ const server = http.createServer(async (req, res) => {
       const number = Number(url.searchParams.get('number'));
       if (!slug || !/^[a-z0-9-]+$/.test(slug) || !Number.isInteger(number) || number < 1) { res.writeHead(400); return res.end('Invalid episode'); }
       const cached = recentSources.get(`${slug}:${number}`);
-      const source = cached && Date.now() - cached.fetchedAt < 60 * 1000 ? cached : await refreshEpisode(slug, number);
+      let source = cached && Date.now() - cached.fetchedAt < 60 * 1000 ? cached : await refreshEpisode(slug, number);
+      const probe = await request(source.url, { 'User-Agent': UA, Range: 'bytes=0-0' });
+      const sourceAvailable = probe.statusCode === 200 || probe.statusCode === 206;
+      probe.destroy();
+      if (!sourceAvailable) source = await refreshEpisode(slug, number, { noCache: true, forceEdge: true });
       const ffmpeg = spawn('ffmpeg', [
         '-nostdin', '-hide_banner', '-loglevel', 'error', '-i', source.url,
         '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '30',
@@ -218,9 +245,11 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/proxy') {
       const target = new URL(url.searchParams.get('url'));
-      if (target.protocol !== 'https:' || !allowedHosts.has(target.hostname)) { res.writeHead(400); return res.end('Invalid media URL'); }
-      const upstream = await request(target.href, { 'User-Agent': UA });
-      if (upstream.statusCode !== 200) {
+      if (!isAllowedMediaUrl(target)) { res.writeHead(400); return res.end('Invalid media URL'); }
+      const headers = { 'User-Agent': UA };
+      if (req.headers.range) headers.Range = req.headers.range;
+      const upstream = await request(target.href, headers);
+      if (upstream.statusCode !== 200 && upstream.statusCode !== 206) {
         upstream.resume();
         res.writeHead(upstream.statusCode || 502);
         return res.end(`Media source HTTP ${upstream.statusCode}`);
@@ -232,9 +261,11 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' });
         return res.end(rewritePlaylist(body, target.href));
       }
-      res.writeHead(200, {
+      res.writeHead(upstream.statusCode, {
         'Content-Type': upstream.headers['content-type'] || 'application/octet-stream',
-        ...(upstream.headers['content-length'] ? { 'Content-Length': upstream.headers['content-length'] } : {})
+        ...(upstream.headers['content-length'] ? { 'Content-Length': upstream.headers['content-length'] } : {}),
+        ...(upstream.headers['content-range'] ? { 'Content-Range': upstream.headers['content-range'] } : {}),
+        ...(upstream.headers['accept-ranges'] ? { 'Accept-Ranges': upstream.headers['accept-ranges'] } : {})
       });
       return upstream.pipe(res);
     }
@@ -243,7 +274,7 @@ const server = http.createServer(async (req, res) => {
     if (!['index.html', 'app.js', 'test.html'].includes(file)) { res.writeHead(404); return res.end('Not found'); }
     const full = path.join(__dirname, file);
     const type = file.endsWith('.js') ? 'application/javascript' : 'text/html; charset=utf-8';
-    res.writeHead(200, { 'Content-Type': type });
+    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
     return fs.createReadStream(full).pipe(res);
   } catch (err) {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
