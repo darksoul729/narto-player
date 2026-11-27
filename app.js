@@ -238,6 +238,8 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
   currentEp = 0;
   resetMediaElement();
   video.poster = drama.poster;
+  if ($('dramaThumb')) $('dramaThumb').src = drama.poster || '';
+  if ($('ambientPoster')) $('ambientPoster').src = drama.poster || '';
   $('retryBtn').hidden = true;
   $('resSelect').hidden = true;
   $('subSelect').hidden = true;
