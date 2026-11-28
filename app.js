@@ -51,11 +51,21 @@ function hideMessage() {
   $('retryBtn').hidden = true;
 }
 
-function showAction(label, action) {
+function refreshIcons() {
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function showAction(label, action, iconName = 'rotate-ccw') {
   const button = $('retryBtn');
-  button.textContent = label;
+  button.replaceChildren();
+  const icon = document.createElement('i');
+  icon.dataset.lucide = iconName;
+  const text = document.createElement('span');
+  text.textContent = label;
+  button.append(icon, text);
   button.onclick = action;
   button.hidden = false;
+  refreshIcons();
 }
 
 function proxyMediaUrl(url, isSub = false) {
@@ -235,10 +245,15 @@ function renderCatalog() {
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'catalog-more';
-    more.textContent = 'Muat lebih banyak';
+    const icon = document.createElement('i');
+    icon.dataset.lucide = 'plus';
+    const text = document.createElement('span');
+    text.textContent = 'Muat lebih banyak';
+    more.append(icon, text);
     more.onclick = () => loadCatalog('', catalogPage + 1, true);
     list.append(more);
   }
+  refreshIcons();
 }
 
 async function loadCatalog(query = '', page = 1, append = false) {
@@ -570,4 +585,5 @@ setInterval(async () => {
   } catch (_) {}
 }, 60 * 1000);
 
+refreshIcons();
 loadCatalog();
