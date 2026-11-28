@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const net = require('net');
+const zlib = require('zlib');
 const { spawn } = require('child_process');
 
 const PORT = 8902;
@@ -468,6 +469,28 @@ function rewritePlaylist(body, source) {
   }).join('\n');
 }
 
+function sendText(req, res, status, contentType, body, extraHeaders = {}) {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body));
+  const acceptsGzip = /\bgzip\b/i.test(req.headers['accept-encoding'] || '');
+  if (acceptsGzip && buf.length >= 512) {
+    return zlib.gzip(buf, (err, gz) => {
+      if (err) {
+        res.writeHead(status, { 'Content-Type': contentType, ...extraHeaders });
+        return res.end(buf);
+      }
+      res.writeHead(status, {
+        'Content-Type': contentType,
+        'Content-Encoding': 'gzip',
+        'Vary': 'Accept-Encoding',
+        ...extraHeaders
+      });
+      return res.end(gz);
+    });
+  }
+  res.writeHead(status, { 'Content-Type': contentType, ...extraHeaders });
+  return res.end(buf);
+}
+
 function srtToVtt(text) {
   const clean = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
   if (!clean) return 'WEBVTT\n\n';
@@ -524,27 +547,23 @@ const server = http.createServer(async (req, res) => {
           items = mergeCatalogLists(liveItems, localItems);
         }
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ total: items.length, page, items: items.slice((page - 1) * limit, page * limit) }));
+      return sendText(req, res, 200, 'application/json', JSON.stringify({ total: items.length, page, items: items.slice((page - 1) * limit, page * limit) }));
     }
 
     if (url.pathname === '/api/catalog/status') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ total: catalog.length, lastUpdated, lastAdded, updating: Boolean(syncPromise) }));
+      return sendText(req, res, 200, 'application/json', JSON.stringify({ total: catalog.length, lastUpdated, lastAdded, updating: Boolean(syncPromise) }));
     }
 
     if (url.pathname === '/api/catalog/update' && req.method === 'POST') {
       const result = await updateCatalog((url.searchParams.get('q') || '').trim().slice(0, 100));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(result));
+      return sendText(req, res, 200, 'application/json', JSON.stringify(result));
     }
 
     if (url.pathname === '/api/episodes') {
       const slug = url.searchParams.get('slug');
       if (!slug || !/^[a-zA-Z0-9._-]+$/.test(slug)) { res.writeHead(400); return res.end('Invalid slug'); }
       const episodes = await getEpisodes(slug);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ slug, episodes }));
+      return sendText(req, res, 200, 'application/json', JSON.stringify({ slug, episodes }));
     }
 
     if (url.pathname === '/api/episode-source') {
@@ -665,9 +684,9 @@ const server = http.createServer(async (req, res) => {
     const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
     if (!['index.html', 'app.js', 'test.html'].includes(file)) { res.writeHead(404); return res.end('Not found'); }
     const full = path.join(__dirname, file);
-    const type = file.endsWith('.js') ? 'application/javascript' : 'text/html; charset=utf-8';
-    res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
-    return fs.createReadStream(full).pipe(res);
+    const type = file.endsWith('.js') ? 'application/javascript; charset=utf-8' : 'text/html; charset=utf-8';
+    const content = await fs.promises.readFile(full);
+    return sendText(req, res, 200, type, content, { 'Cache-Control': 'no-cache' });
   } catch (err) {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));

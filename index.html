@@ -4,22 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Panzek Player</title>
+<link rel="preconnect" href="https://img.nartodrama-api.online" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<script defer src="app.js?v=16"></script>
 <style>
 :root{
   --bg:#0b0e13;
   --bg-depth:#10151d;
-  --glass:rgba(22,28,38,.58);
+  --glass:rgba(22,28,38,.74);
   --glass-btn:rgba(255,255,255,.08);
   --glass-btn-hover:rgba(255,255,255,.15);
   --glass-accent:rgba(229,169,60,.24);
   --glass-accent-hover:rgba(229,169,60,.36);
-  --glass-strong:rgba(28,35,47,.76);
-  --glass-hover:rgba(37,46,61,.82);
   --line:rgba(226,236,248,.13);
   --line-strong:rgba(226,236,248,.22);
   --line-accent:rgba(229,169,60,.62);
@@ -39,24 +37,23 @@ html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-f
 body{
   background-color:var(--bg);
   background-image:radial-gradient(1200px 600px at 50% -180px,#182230 0%,transparent 70%);
-  background-attachment:fixed;
+  background-repeat:no-repeat;
   padding-bottom:env(safe-area-inset-bottom);
 }
 button,input,select{font:inherit}
 button{cursor:pointer;touch-action:manipulation}
-.lucide{width:15px;height:15px;flex:none;stroke-width:2}
+.lucide{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .brand-mark-box .lucide{width:14px;height:14px;fill:currentColor}
 .search-icon{display:grid;place-items:center}
-.search-icon .lucide{width:15px;height:15px}
 .sync-btn,.catalog-more,.mini-dock-btn,.screen-message button,.transport button,.back-btn,.hero-cta{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 
-/* Frosted Glass Sticky Header */
+/* Frosted Glass Sticky Header (single GPU blur surface) */
 .topbar{
   position:sticky;top:0;z-index:40;
-  background:rgba(13,17,24,.72);
-  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  background:rgba(13,17,24,.78);
+  backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);
   border-bottom:1px solid var(--line);
-  box-shadow:0 8px 28px rgba(0,0,0,.32);
+  box-shadow:0 8px 24px rgba(0,0,0,.3);
   padding-top:env(safe-area-inset-top);
 }
 .topbar-inner{
@@ -67,9 +64,7 @@ button{cursor:pointer;touch-action:manipulation}
 .brand-mark-box{
   width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;
   background:var(--glass-accent);border:1px solid var(--line-accent);
-  box-shadow:var(--specular-accent),0 4px 12px rgba(0,0,0,.28);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  color:var(--accent-text);
+  box-shadow:var(--specular-accent);color:var(--accent-text);
 }
 .brand-name{font-family:var(--font-display);font-size:17px;font-weight:800;letter-spacing:-.02em;line-height:1}
 .brand-name span{color:var(--accent)}
@@ -80,11 +75,8 @@ button{cursor:pointer;touch-action:manipulation}
 .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
 .search-wrap input{
   width:100%;height:40px;padding:0 36px 0 36px;border-radius:10px;outline:0;
-  border:1px solid var(--line-strong);
-  background:rgba(255,255,255,.06);
-  box-shadow:var(--specular);
-  color:var(--text);font-size:14px;
-  transition:border-color .15s,background .15s;
+  border:1px solid var(--line-strong);background:rgba(255,255,255,.06);box-shadow:var(--specular);
+  color:var(--text);font-size:14px;transition:border-color .15s,background .15s;
 }
 .search-wrap input::-webkit-search-cancel-button{display:none}
 .search-wrap input::placeholder{color:#7c8698}
@@ -99,14 +91,12 @@ button{cursor:pointer;touch-action:manipulation}
 
 .top-actions{display:flex;align-items:center;gap:10px;justify-self:end}
 .stat-chip{
-  padding:5px 10px;border-radius:8px;
-  background:var(--glass);border:1px solid var(--line);box-shadow:var(--specular);
+  padding:5px 10px;border-radius:8px;background:var(--glass-btn);border:1px solid var(--line);box-shadow:var(--specular);
   font-family:var(--font-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;
 }
 .sync-btn{
   min-height:36px;padding:0 13px;border-radius:10px;border:1px solid var(--line-strong);
-  background:var(--glass-btn);box-shadow:var(--specular),0 4px 14px rgba(0,0,0,.22);
-  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+  background:var(--glass-btn);box-shadow:var(--specular);
   color:var(--text);font-size:12px;font-weight:600;white-space:nowrap;
   transition:border-color .15s,background .15s,transform .12s;
 }
@@ -124,13 +114,13 @@ body[data-view="catalog"] .watch-view{display:none}
   display:flex;flex-direction:column;gap:26px;
 }
 
-/* Frosted Glass Feature Panel */
+/* Frosted Glass Feature Panel (single GPU blur surface) */
 .hero-card{
   display:grid;grid-template-columns:148px 1fr;gap:22px;align-items:center;
   padding:20px;border-radius:16px;
   background:var(--glass);
-  backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);
-  border:1px solid var(--line-strong);box-shadow:var(--specular),0 20px 44px rgba(0,0,0,.35);
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);
+  border:1px solid var(--line-strong);box-shadow:var(--specular),0 18px 40px rgba(0,0,0,.32);
 }
 .hero-card[hidden]{display:none}
 .hero-poster{
@@ -151,8 +141,7 @@ body[data-view="catalog"] .watch-view{display:none}
 .hero-cta{
   min-height:42px;padding:0 20px;border-radius:11px;
   border:1px solid var(--line-accent);background:var(--glass-accent);
-  box-shadow:var(--specular-accent),0 8px 20px rgba(0,0,0,.3);
-  backdrop-filter:blur(18px) saturate(170%);-webkit-backdrop-filter:blur(18px) saturate(170%);
+  box-shadow:var(--specular-accent),0 6px 18px rgba(0,0,0,.25);
   color:var(--accent-text);font-size:13px;font-weight:700;
   transition:background .15s,border-color .15s,transform .12s;
 }
@@ -166,7 +155,7 @@ body[data-view="catalog"] .watch-view{display:none}
 .section-head h2{font-family:var(--font-display);margin:0;font-size:18px;font-weight:700}
 .section-head span{font-family:var(--font-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-/* Poster Grid */
+/* Poster Grid with Deferred Off-Screen Rendering */
 .catalog-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px 14px;
   margin-top:16px;
@@ -174,6 +163,9 @@ body[data-view="catalog"] .watch-view{display:none}
 .drama-card{
   display:flex;flex-direction:column;gap:8px;padding:0;border:0;background:transparent;
   color:var(--text);text-align:left;
+}
+.drama-card:nth-child(n + 7){
+  content-visibility:auto;contain-intrinsic-size:auto 245px;
 }
 .drama-card:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:10px}
 .drama-thumb-box{
@@ -187,8 +179,7 @@ body[data-view="catalog"] .watch-view{display:none}
 .drama-badge{
   position:absolute;top:7px;left:7px;z-index:2;display:none;
   padding:3px 8px;border-radius:7px;
-  background:rgba(16,20,28,.72);border:1px solid var(--line-accent);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background:rgba(16,20,28,.84);border:1px solid var(--line-accent);
   color:var(--accent-text);font-family:var(--font-mono);font-size:10px;font-weight:700;text-transform:uppercase;
 }
 .drama-card.active .drama-badge{display:block}
@@ -203,7 +194,6 @@ body[data-view="catalog"] .watch-view{display:none}
   min-height:42px;padding:0 24px;border-radius:11px;
   border:1px solid var(--line-strong);background:var(--glass-btn);
   box-shadow:var(--specular),0 6px 18px rgba(0,0,0,.25);
-  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
   color:var(--text);font-size:13px;font-weight:600;transition:background .15s,border-color .15s,transform .12s;
 }
 .catalog-more:hover{border-color:var(--line-accent);background:var(--glass-btn-hover)}
@@ -214,8 +204,8 @@ body[data-view="catalog"] .watch-view{display:none}
 .mini-dock{
   position:fixed;left:14px;right:14px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;
   max-width:560px;margin:0 auto;padding:10px 12px;border-radius:14px;
-  background:rgba(20,26,36,.82);
-  backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);
+  background:rgba(20,26,36,.84);
+  backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
   border:1px solid var(--line-strong);box-shadow:var(--specular),0 18px 40px rgba(0,0,0,.5);
 }
 .mini-dock[hidden]{display:none}
@@ -226,9 +216,7 @@ body[data-view="catalog"] .watch-view{display:none}
 .mini-dock-info small{display:block;font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:2px}
 .mini-dock-btn{
   min-height:36px;padding:0 14px;border-radius:9px;flex:none;
-  border:1px solid var(--line-accent);background:var(--glass-accent);
-  box-shadow:var(--specular-accent);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--line-accent);background:var(--glass-accent);box-shadow:var(--specular-accent);
   color:var(--accent-text);font-size:12px;font-weight:700;transition:background .15s,transform .12s;
 }
 .mini-dock-btn:hover{background:var(--glass-accent-hover)}
@@ -242,8 +230,8 @@ body[data-view="catalog"] .watch-view{display:none}
 .watch-bar{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .back-btn{
   min-height:38px;padding:0 13px;border-radius:10px;border:1px solid var(--line-strong);
-  background:var(--glass-btn);box-shadow:var(--specular),0 4px 14px rgba(0,0,0,.22);
-  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+  background:var(--glass-btn);box-shadow:var(--specular),0 4px 12px rgba(0,0,0,.22);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   color:var(--text);font-size:12px;font-weight:600;transition:background .15s,border-color .15s,transform .12s;
 }
 .back-btn:hover{border-color:var(--line-accent);background:var(--glass-btn-hover)}
@@ -264,7 +252,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 .screen-message{
   position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;
   align-items:center;justify-content:center;text-align:center;padding:24px;
-  background:rgba(11,14,19,.82);
+  background:rgba(11,14,19,.84);
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   color:var(--text);font-size:14px;line-height:1.55;
 }
@@ -273,7 +261,6 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
   min-height:40px;padding:0 20px;border-radius:10px;
   border:1px solid var(--line-accent);background:var(--glass-accent);
   box-shadow:var(--specular-accent),0 8px 20px rgba(0,0,0,.3);
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   color:var(--accent-text);font-weight:700;transition:background .15s,transform .12s;
 }
 .screen-message button:hover{background:var(--glass-accent-hover)}
@@ -281,7 +268,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 
 .watch-controls{
   background:var(--glass);
-  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);
   border:1px solid var(--line-strong);border-radius:14px;padding:15px 17px;box-shadow:var(--specular);
   display:flex;flex-direction:column;gap:12px;
 }
@@ -291,8 +278,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 .transport{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .transport button,.transport select{
   min-height:38px;padding:0 13px;border-radius:10px;border:1px solid var(--line-strong);
-  background:var(--glass-btn);box-shadow:var(--specular),0 4px 12px rgba(0,0,0,.2);
-  backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
+  background:var(--glass-btn);box-shadow:var(--specular);
   color:var(--text);font-size:12px;font-weight:600;transition:background .15s,border-color .15s,transform .12s;
 }
 .transport select{max-width:155px;padding:0 10px}
@@ -303,7 +289,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 
 .episodes-box{
   background:var(--glass);
-  backdrop-filter:blur(24px) saturate(160%);-webkit-backdrop-filter:blur(24px) saturate(160%);
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);
   border:1px solid var(--line-strong);border-radius:16px;padding:16px;box-shadow:var(--specular);
   display:flex;flex-direction:column;gap:12px;max-height:calc(min(70vh,630px) + 120px);
 }
@@ -327,16 +313,17 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 .ep{
   min-height:40px;border-radius:9px;border:1px solid var(--line);
   background:var(--glass-btn);box-shadow:var(--specular);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   color:var(--text);font-family:var(--font-mono);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;
   display:grid;place-items:center;padding:4px;transition:border-color .15s,background .15s,transform .12s;
+}
+.ep:nth-child(n + 31){
+  content-visibility:auto;contain-intrinsic-size:auto 40px;
 }
 .ep:hover{border-color:var(--line-strong);background:var(--glass-btn-hover)}
 .ep:active{transform:scale(.96)}
 .ep.active{
   background:var(--glass-accent);border-color:var(--line-accent);
-  box-shadow:var(--specular-accent),0 4px 14px rgba(0,0,0,.25);
-  color:var(--accent-text);
+  box-shadow:var(--specular-accent);color:var(--accent-text);
 }
 
 /* ================= MOBILE ================= */
@@ -364,6 +351,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
   .hero-cta{min-height:38px;padding:0 16px;font-size:12px}
 
   .catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:15px 10px;margin-top:12px}
+  .drama-card:nth-child(n + 10){content-visibility:auto;contain-intrinsic-size:auto 175px}
   .drama-card:hover .drama-thumb-box{transform:none}
   .drama-meta strong{font-size:12px;line-height:1.28}
 
@@ -386,10 +374,23 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 </style>
 </head>
 <body data-view="catalog">
+<!-- Inline SVG symbol sprite using Lucide geometry (0 blocking script, 0 DOM scan) -->
+<svg hidden aria-hidden="true">
+  <symbol id="ic-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="ic-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="ic-chev-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="ic-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="ic-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+</svg>
+
 <header class="topbar">
   <div class="topbar-inner">
     <button class="brand" id="brandBtn" type="button" aria-label="Kembali ke katalog">
-      <span class="brand-mark-box"><i data-lucide="play"></i></span>
+      <span class="brand-mark-box"><svg class="lucide"><use href="#ic-play"/></svg></span>
       <span>
         <span class="brand-name">PANZEK<span>.</span>PLAYER</span>
         <span class="brand-tag">Arsip Drama</span>
@@ -398,14 +399,14 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 
     <div class="search-wrap">
       <label for="searchInput">Cari judul drama</label>
-      <span class="search-icon" aria-hidden="true"><i data-lucide="search"></i></span>
+      <span class="search-icon" aria-hidden="true"><svg class="lucide"><use href="#ic-search"/></svg></span>
       <input id="searchInput" type="search" placeholder="Cari judul drama..." autocomplete="off">
-      <button class="search-clear" id="searchClearBtn" type="button" aria-label="Hapus pencarian" hidden><i data-lucide="x"></i></button>
+      <button class="search-clear" id="searchClearBtn" type="button" aria-label="Hapus pencarian" hidden><svg class="lucide"><use href="#ic-x"/></svg></button>
     </div>
 
     <div class="top-actions">
       <span class="stat-chip" id="catalogStats">...</span>
-      <button class="sync-btn" id="updateBtn" type="button"><i data-lucide="refresh-cw"></i><span>Update</span></button>
+      <button class="sync-btn" id="updateBtn" type="button"><svg class="lucide"><use href="#ic-refresh"/></svg><span>Update</span></button>
       <span class="sync-status" id="updateStatus" role="status">1j</span>
     </div>
   </div>
@@ -413,12 +414,12 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 
 <main class="catalog-view" id="catalogView">
   <section class="hero-card" id="heroCard" hidden>
-    <img class="hero-poster" id="heroPoster" src="" alt="" referrerpolicy="no-referrer">
+    <img class="hero-poster" id="heroPoster" src="" alt="" width="300" height="400" decoding="async" fetchpriority="high" referrerpolicy="no-referrer">
     <div class="hero-info">
       <span class="hero-label">Sorotan</span>
       <h1 id="heroTitle">—</h1>
       <p>Seluruh episode tersedia untuk diputar langsung dengan pemulihan tautan otomatis dan subtitle.</p>
-      <button class="hero-cta" id="heroPlayBtn" type="button"><i data-lucide="play"></i><span>Putar Episode 1</span></button>
+      <button class="hero-cta" id="heroPlayBtn" type="button"><svg class="lucide"><use href="#ic-play"/></svg><span>Putar Episode 1</span></button>
     </div>
   </section>
 
@@ -432,29 +433,29 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 
   <div class="mini-dock" id="miniDock" hidden>
     <div class="mini-dock-inner">
-      <img id="miniPoster" src="" alt="" referrerpolicy="no-referrer">
+      <img id="miniPoster" src="" alt="" width="36" height="48" decoding="async" referrerpolicy="no-referrer">
       <div class="mini-dock-info">
         <strong id="miniTitle">—</strong>
         <small id="miniEp">Lanjutkan menonton</small>
       </div>
-      <button class="mini-dock-btn" id="miniResumeBtn" type="button"><i data-lucide="play"></i><span>Lanjut</span></button>
+      <button class="mini-dock-btn" id="miniResumeBtn" type="button"><svg class="lucide"><use href="#ic-play"/></svg><span>Lanjut</span></button>
     </div>
   </div>
 </main>
 
 <section class="watch-view" id="watchView">
   <div class="watch-bar">
-    <button class="back-btn" id="backBtn" type="button"><i data-lucide="arrow-left"></i><span>Katalog</span></button>
+    <button class="back-btn" id="backBtn" type="button"><svg class="lucide"><use href="#ic-arrow-left"/></svg><span>Katalog</span></button>
     <span class="watch-ep-pill" id="episodeBadge">—</span>
   </div>
 
   <div class="watch-layout">
     <div class="player-col">
       <div class="screen" id="playerWrap">
-        <video id="video" controls playsinline preload="metadata"></video>
+        <video id="video" controls playsinline preload="metadata" width="720" height="1280"></video>
         <div class="screen-message" id="screenMessage" role="status">
           <span id="screenMessageText">Memuat episode...</span>
-          <button id="retryBtn" type="button" hidden><i data-lucide="rotate-ccw"></i><span>Coba lagi</span></button>
+          <button id="retryBtn" type="button" hidden><svg class="lucide"><use href="#ic-rotate"/></svg><span>Coba lagi</span></button>
         </div>
       </div>
 
@@ -468,8 +469,8 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
         <div class="transport">
           <select id="resSelect" aria-label="Pilih kualitas" hidden></select>
           <select id="subSelect" aria-label="Pilih subtitle" hidden></select>
-          <button id="prevBtn" type="button" aria-label="Episode sebelumnya"><i data-lucide="chevron-left"></i><span>Sebelumnya</span></button>
-          <button id="nextBtn" type="button" aria-label="Episode berikutnya"><span>Berikutnya</span><i data-lucide="chevron-right"></i></button>
+          <button id="prevBtn" type="button" aria-label="Episode sebelumnya"><svg class="lucide"><use href="#ic-chev-left"/></svg><span>Sebelumnya</span></button>
+          <button id="nextBtn" type="button" aria-label="Episode berikutnya"><span>Berikutnya</span><svg class="lucide"><use href="#ic-chev-right"/></svg></button>
         </div>
       </div>
     </div>
@@ -484,7 +485,5 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
     </aside>
   </div>
 </section>
-
-<script src="app.js?v=15"></script>
 </body>
 </html>

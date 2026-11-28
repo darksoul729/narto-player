@@ -53,21 +53,37 @@ function hideMessage() {
   $('retryBtn').hidden = true;
 }
 
-function refreshIcons() {
-  if (window.lucide?.createIcons) window.lucide.createIcons();
+let hlsLoadPromise = null;
+function ensureHls() {
+  if (window.Hls) return Promise.resolve(window.Hls);
+  if (hlsLoadPromise) return hlsLoadPromise;
+  hlsLoadPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js';
+    s.onload = () => resolve(window.Hls);
+    s.onerror = () => { hlsLoadPromise = null; reject(new Error('Gagal memuat pemutar HLS')); };
+    document.head.append(s);
+  });
+  return hlsLoadPromise;
 }
 
-function showAction(label, action, iconName = 'rotate-ccw') {
+function makeIcon(id) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'lucide');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#${id}`);
+  svg.append(use);
+  return svg;
+}
+
+function showAction(label, action, iconId = 'ic-rotate') {
   const button = $('retryBtn');
   button.replaceChildren();
-  const icon = document.createElement('i');
-  icon.dataset.lucide = iconName;
   const text = document.createElement('span');
   text.textContent = label;
-  button.append(icon, text);
+  button.append(makeIcon(iconId), text);
   button.onclick = action;
   button.hidden = false;
-  refreshIcons();
 }
 
 function proxyMediaUrl(url, isSub = false) {
@@ -217,7 +233,8 @@ function renderCatalog() {
     list.append(empty);
     return;
   }
-  for (const drama of catalog) {
+  for (let idx = 0; idx < catalog.length; idx++) {
+    const drama = catalog[idx];
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `drama-card${currentDrama?.slug === drama.slug ? ' active' : ''}`;
@@ -229,7 +246,15 @@ function renderCatalog() {
     const image = document.createElement('img');
     image.src = drama.poster;
     image.alt = drama.title;
-    image.loading = 'lazy';
+    image.width = 300;
+    image.height = 400;
+    image.decoding = 'async';
+    if (idx < 6) {
+      image.fetchPriority = 'high';
+    } else {
+      image.loading = 'lazy';
+      image.fetchPriority = 'low';
+    }
     image.referrerPolicy = 'no-referrer';
     thumbBox.append(badge, image);
 
@@ -247,15 +272,12 @@ function renderCatalog() {
     const more = document.createElement('button');
     more.type = 'button';
     more.className = 'catalog-more';
-    const icon = document.createElement('i');
-    icon.dataset.lucide = 'plus';
     const text = document.createElement('span');
     text.textContent = 'Muat lebih banyak';
-    more.append(icon, text);
+    more.append(makeIcon('ic-plus'), text);
     more.onclick = () => loadCatalog('', catalogPage + 1, true);
     list.append(more);
   }
-  refreshIcons();
 }
 
 async function loadCatalog(query = '', page = 1, append = false, source = 'auto') {
@@ -269,7 +291,7 @@ async function loadCatalog(query = '', page = 1, append = false, source = 'auto'
   else if (!append) liveAbort = controller;
 
   try {
-    const data = await json(`${API}/api/catalog?limit=60&page=${page}&source=${encodeURIComponent(source)}&q=${encodeURIComponent(query)}`, controller.signal);
+    const data = await json(`${API}/api/catalog?limit=24&page=${page}&source=${encodeURIComponent(source)}&q=${encodeURIComponent(query)}`, controller.signal);
     if (requestId !== catalogRequest && source === 'local') return;
     if (query !== $('searchInput').value.trim()) return;
     catalogPage = page;
@@ -394,13 +416,17 @@ function buildCandidates(source) {
   return candidates;
 }
 
-function startMediaCandidate(candidate, token) {
+async function startMediaCandidate(candidate, token) {
   if (token !== playRequest || !candidate?.url) return;
   video.pause();
   if (hls) { hls.destroy(); hls = null; }
   video.removeAttribute('src');
   video.load();
   const proxied = proxyMediaUrl(candidate.url);
+  if (candidate.isHls) {
+    try { await ensureHls(); } catch { return handlePlaybackFailure(); }
+    if (token !== playRequest) return;
+  }
   if (candidate.isHls && window.Hls?.isSupported()) {
     hls = new Hls({ fragLoadingMaxRetry: 4, manifestLoadingMaxRetry: 3, levelLoadingMaxRetry: 3 });
     hls.on(Hls.Events.ERROR, (_, data) => {
@@ -618,5 +644,4 @@ setInterval(async () => {
   } catch (_) {}
 }, 60 * 1000);
 
-refreshIcons();
 loadCatalog();
