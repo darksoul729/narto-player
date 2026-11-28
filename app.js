@@ -183,7 +183,6 @@ function renderHero(query) {
     return;
   }
   $('heroPoster').src = featured.poster || '';
-  $('heroBackdrop').src = featured.poster || '';
   $('heroTitle').textContent = featured.title;
   $('heroPlayBtn').onclick = () => openDrama(featured);
   hero.hidden = false;
@@ -196,8 +195,8 @@ function renderCatalog() {
   renderHero(q);
   $('catalogHeading').textContent = q ? `Hasil untuk “${q}”` : 'Katalog Drama';
   $('catalogHint').textContent = q
-    ? `${catalog.length} judul ditemukan`
-    : `${catalogTotal.toLocaleString('id-ID')} judul tersedia`;
+    ? `${catalog.length} judul`
+    : `${catalogTotal.toLocaleString('id-ID')} judul`;
 
   if (!catalog.length) {
     const empty = document.createElement('div');
@@ -215,23 +214,18 @@ function renderCatalog() {
     const badge = document.createElement('span');
     badge.className = 'drama-badge';
     badge.textContent = 'Diputar';
-    const playChip = document.createElement('span');
-    playChip.className = 'drama-play-chip';
-    playChip.textContent = '▶';
     const image = document.createElement('img');
     image.src = drama.poster;
     image.alt = drama.title;
     image.loading = 'lazy';
     image.referrerPolicy = 'no-referrer';
-    thumbBox.append(badge, playChip, image);
+    thumbBox.append(badge, image);
 
     const meta = document.createElement('div');
     meta.className = 'drama-meta';
     const title = document.createElement('strong');
     title.textContent = drama.title;
-    const hint = document.createElement('small');
-    hint.textContent = 'Tap untuk menonton';
-    meta.append(title, hint);
+    meta.append(title);
 
     button.append(thumbBox, meta);
     button.onclick = () => openDrama(drama);
