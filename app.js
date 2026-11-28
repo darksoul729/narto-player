@@ -12,6 +12,8 @@ let auxAudio = null;
 let subtitleBlobUrl = '';
 let selection = 0;
 let searchTimer;
+let localAbort = null;
+let liveAbort = null;
 let catalogRequest = 0;
 let displayedTotal = 0;
 let playRequest = 0;
@@ -73,8 +75,8 @@ function proxyMediaUrl(url, isSub = false) {
   return `${API}/proxy?${isSub ? 'sub=1&' : ''}url=${encodeURIComponent(url)}`;
 }
 
-async function json(url) {
-  const response = await fetch(url);
+async function json(url, signal) {
+  const response = await fetch(url, signal ? { signal } : undefined);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
@@ -256,11 +258,20 @@ function renderCatalog() {
   refreshIcons();
 }
 
-async function loadCatalog(query = '', page = 1, append = false) {
+async function loadCatalog(query = '', page = 1, append = false, source = 'auto') {
   const requestId = ++catalogRequest;
+  if (!append) {
+    if (localAbort) localAbort.abort();
+    if (source !== 'local' && liveAbort) liveAbort.abort();
+  }
+  const controller = new AbortController();
+  if (source === 'local') localAbort = controller;
+  else if (!append) liveAbort = controller;
+
   try {
-    const data = await json(`${API}/api/catalog?limit=60&page=${page}&q=${encodeURIComponent(query)}`);
-    if (requestId !== catalogRequest) return;
+    const data = await json(`${API}/api/catalog?limit=60&page=${page}&source=${encodeURIComponent(source)}&q=${encodeURIComponent(query)}`, controller.signal);
+    if (requestId !== catalogRequest && source === 'local') return;
+    if (query !== $('searchInput').value.trim()) return;
     catalogPage = page;
     catalogTotal = data.total;
     catalog = append ? [...catalog, ...data.items] : data.items;
@@ -269,7 +280,11 @@ async function loadCatalog(query = '', page = 1, append = false) {
       ? `${data.total.toLocaleString('id-ID')} hasil`
       : `${data.total.toLocaleString('id-ID')} judul`;
     renderCatalog();
+    if (query && source === 'local') {
+      $('catalogHint').textContent = `${data.total.toLocaleString('id-ID')} lokal · mencari sumber...`;
+    }
   } catch (error) {
+    if (error.name === 'AbortError') return;
     if (requestId === catalogRequest) $('catalogHint').textContent = `Gagal memuat katalog: ${error.message}`;
   }
 }
@@ -556,9 +571,27 @@ window.addEventListener('popstate', () => {
 $('searchInput').oninput = event => {
   clearTimeout(searchTimer);
   const value = event.target.value.trim();
+  if ($('searchClearBtn')) $('searchClearBtn').hidden = !event.target.value.length;
   if (value && document.body.dataset.view === 'watch') setView('catalog');
-  searchTimer = setTimeout(() => loadCatalog(value), 250);
+  if (!value) {
+    if (localAbort) localAbort.abort();
+    if (liveAbort) liveAbort.abort();
+    loadCatalog('');
+    return;
+  }
+  loadCatalog(value, 1, false, 'local');
+  searchTimer = setTimeout(() => loadCatalog(value, 1, false, 'live'), 180);
 };
+if ($('searchClearBtn')) {
+  $('searchClearBtn').onclick = () => {
+    $('searchInput').value = '';
+    $('searchClearBtn').hidden = true;
+    if (localAbort) localAbort.abort();
+    if (liveAbort) liveAbort.abort();
+    loadCatalog('');
+    $('searchInput').focus();
+  };
+}
 
 $('updateBtn').onclick = async () => {
   const button = $('updateBtn');

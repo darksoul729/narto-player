@@ -476,14 +476,54 @@ function srtToVtt(text) {
   return `WEBVTT\n\n${converted}\n`;
 }
 
+function searchLocalCatalog(query) {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return catalog;
+  const scored = [];
+  for (const item of catalog) {
+    const title = item.title.toLowerCase();
+    const slug = item.slug.toLowerCase();
+    let matches = true;
+    for (const token of tokens) {
+      if (!title.includes(token) && !slug.includes(token)) { matches = false; break; }
+    }
+    if (!matches) continue;
+    const score = title.startsWith(query) ? 3 : (tokens.every(t => title.includes(t)) ? 2 : 1);
+    scored.push({ score, item });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map(entry => entry.item);
+}
+
+function mergeCatalogLists(primary, secondary) {
+  const seen = new Set();
+  const out = [];
+  for (const item of [...primary, ...secondary]) {
+    if (!item || seen.has(item.slug)) continue;
+    seen.add(item.slug);
+    out.push(item);
+  }
+  return out;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   try {
     if (url.pathname === '/api/catalog') {
       const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+      const source = url.searchParams.get('source') || 'auto';
       const page = Math.max(1, parseInt(url.searchParams.get('page'), 10) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit'), 10) || 60));
-      const items = q ? await searchCatalog(q) : catalog;
+      let items = catalog;
+      if (q) {
+        const localItems = searchLocalCatalog(q);
+        if (source === 'local') {
+          items = localItems;
+        } else {
+          const liveItems = await searchCatalog(q).catch(() => []);
+          items = mergeCatalogLists(liveItems, localItems);
+        }
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ total: items.length, page, items: items.slice((page - 1) * limit, page * limit) }));
     }
