@@ -207,17 +207,83 @@ function isAllowedMediaUrl(target) {
 }
 
 const UPSTREAM_PROXY = (process.env.UPSTREAM_PROXY || process.env.HTTPS_PROXY || '').trim();
+const UPSTREAM_PROXY_ALL = process.env.UPSTREAM_PROXY_ALL === '1';
 
 function shouldProxyHost(hostname) {
   if (!UPSTREAM_PROXY) return false;
+  if (UPSTREAM_PROXY_ALL) return true;
   const host = String(hostname || '').toLowerCase();
-  return host === 'narto-drama.com' || host.endsWith('.narto-drama.com') || host === 'nartodrama.com' || host.endsWith('.nartodrama.com');
+  return host === 'narto-drama.com' || host === 'www.narto-drama.com' || host === 'nartodrama.com' || host === 'www.nartodrama.com';
+}
+
+function connectViaSocks5(proxy, targetHost, targetPort) {
+  return new Promise((resolve, reject) => {
+    const proxyPort = Number(proxy.port) || 1080;
+    const sock = net.connect({ host: proxy.hostname, port: proxyPort });
+    let timer = setTimeout(() => { sock.destroy(); reject(new Error('SOCKS5 timeout')); }, 20000);
+    const cleanup = () => { clearTimeout(timer); sock.removeAllListeners(); };
+    const fail = err => { cleanup(); sock.destroy(); reject(err); };
+
+    const hasAuth = Boolean(proxy.username || proxy.password);
+    let step = 'greeting';
+    let buf = Buffer.alloc(0);
+
+    const sendConnect = () => {
+      step = 'connect';
+      const hostBuf = Buffer.from(targetHost);
+      const req = Buffer.alloc(7 + hostBuf.length);
+      req[0] = 0x05; req[1] = 0x01; req[2] = 0x00; req[3] = 0x03; req[4] = hostBuf.length;
+      hostBuf.copy(req, 5);
+      req.writeUInt16BE(targetPort, 5 + hostBuf.length);
+      sock.write(req);
+    };
+
+    sock.on('connect', () => {
+      sock.write(hasAuth ? Buffer.from([0x05, 0x02, 0x00, 0x02]) : Buffer.from([0x05, 0x01, 0x00]));
+    });
+    sock.on('error', fail);
+    sock.on('data', chunk => {
+      buf = Buffer.concat([buf, chunk]);
+      if (step === 'greeting' && buf.length >= 2) {
+        if (buf[0] !== 0x05 || buf[1] === 0xff) return fail(new Error('SOCKS5 auth method rejected'));
+        const method = buf[1];
+        buf = buf.subarray(2);
+        if (method === 0x02) {
+          step = 'auth';
+          const u = Buffer.from(decodeURIComponent(proxy.username || ''));
+          const p = Buffer.from(decodeURIComponent(proxy.password || ''));
+          const pkt = Buffer.alloc(3 + u.length + p.length);
+          pkt[0] = 0x01; pkt[1] = u.length; u.copy(pkt, 2);
+          pkt[2 + u.length] = p.length; p.copy(pkt, 3 + u.length);
+          sock.write(pkt);
+        } else {
+          sendConnect();
+        }
+      } else if (step === 'auth' && buf.length >= 2) {
+        if (buf[1] !== 0x00) return fail(new Error('SOCKS5 login failed'));
+        buf = buf.subarray(2);
+        sendConnect();
+      } else if (step === 'connect' && buf.length >= 5) {
+        const atyp = buf[3];
+        const len = atyp === 1 ? 10 : atyp === 4 ? 22 : 7 + buf[4];
+        if (buf.length < len) return;
+        if (buf[1] !== 0x00) return fail(new Error(`SOCKS5 connect error 0x${buf[1].toString(16)}`));
+        const rest = buf.subarray(len);
+        cleanup();
+        if (rest.length) sock.unshift(rest);
+        resolve(sock);
+      }
+    });
+  });
 }
 
 function connectViaProxy(targetUrl) {
+  const proxy = new URL(UPSTREAM_PROXY);
+  const port = Number(targetUrl.port) || (targetUrl.protocol === 'https:' ? 443 : 80);
+  if (proxy.protocol === 'socks5:' || proxy.protocol === 'socks5h:') {
+    return connectViaSocks5(proxy, targetUrl.hostname, port);
+  }
   return new Promise((resolve, reject) => {
-    const proxy = new URL(UPSTREAM_PROXY);
-    const port = Number(targetUrl.port) || (targetUrl.protocol === 'https:' ? 443 : 80);
     const proxyPort = Number(proxy.port) || (proxy.protocol === 'https:' ? 443 : 80);
     const transport = proxy.protocol === 'https:' ? https : http;
     const reqHeaders = { Host: `${targetUrl.hostname}:${port}` };
