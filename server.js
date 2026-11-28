@@ -435,7 +435,15 @@ async function requestEpisodeSource(context, slug, number, options = {}) {
         : { Cookie: getCookieHeader(baseOrigin), 'User-Agent': UA, Accept: 'application/json', Referer: `${baseOrigin}/detail/watch/${encodeURIComponent(slug)}/${number}?lang=id-ID` };
       try {
         const upstream = await request(target.href, headers);
+        absorbSetCookie(baseOrigin, upstream.headers['set-cookie']);
         const body = (await readStream(upstream)).toString('utf8');
+        const blocked = !target.isEdge ? detectBlockReason(upstream.statusCode, body) : '';
+        if (blocked === 'browser_gate') {
+          refreshOriginCookie(baseOrigin);
+          lastError = new Error(`Sumber meminta verifikasi browser (HTTP ${upstream.statusCode})`);
+          if (retry === 0) { await new Promise(r => setTimeout(r, 250)); continue; }
+          break;
+        }
         let parsedErr = null;
         if (upstream.statusCode !== 200) {
           try { parsedErr = JSON.parse(body); } catch {}
