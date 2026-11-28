@@ -33,6 +33,7 @@
   --font-mono:"JetBrains Mono",ui-monospace,monospace;
 }
 *{box-sizing:border-box}
+[hidden],svg[hidden]{display:none !important}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
 body{
   background-color:var(--bg);
@@ -375,7 +376,7 @@ video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
 </head>
 <body data-view="catalog">
 <!-- Inline SVG symbol sprite using Lucide geometry (0 blocking script, 0 DOM scan) -->
-<svg hidden aria-hidden="true">
+<svg hidden aria-hidden="true" width="0" height="0" style="display:none;position:absolute">
   <symbol id="ic-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
   <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="ic-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
