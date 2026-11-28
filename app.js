@@ -25,8 +25,13 @@ function setView(view) {
     video.pause();
     if (auxAudio) auxAudio.pause();
     updateMiniDock();
+  } else if (view === 'watch') {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
   }
   window.scrollTo({ top: 0, behavior: 'instant' });
+  requestAnimationFrame(() => window.scrollTo(0, 0));
 }
 
 function updateMiniDock() {
@@ -354,7 +359,11 @@ async function selectDrama(drama, episodeNumber = null, autoPlay = true) {
     else if (episodes.length) playEpisode(0);
     else message('Belum ada episode dari sumber.');
   } catch (error) {
-    if (requestId === selection) message(`Episode gagal dimuat: ${error.message}`);
+    if (requestId === selection) {
+      $('dramaSubtitle').textContent = 'Gagal memuat episode';
+      message(`Episode gagal dimuat: ${error.message}`);
+      showAction('Coba lagi', () => selectDrama(drama, episodeNumber, autoPlay), 'ic-rotate');
+    }
   }
 }
 

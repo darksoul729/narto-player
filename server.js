@@ -7,12 +7,126 @@ const net = require('net');
 const zlib = require('zlib');
 const { spawn } = require('child_process');
 
-const PORT = 8902;
+const PORT = Number(process.env.PORT) || 8902;
 const catalogPath = path.join(__dirname, 'catalog.json');
 const NARTO_ORIGIN = 'https://narto-drama.com';
+const UPSTREAM_ORIGINS = ['https://narto-drama.com', 'https://nartodrama.com'];
 const CDN = 'https://cdn.narto-drama.com';
-const COOKIE = `nd_ck=${process.env.ND_CK || crypto.randomBytes(12).toString('hex')}; nd_lang=id-ID`;
 const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+const originCookies = new Map();
+
+function makeNdCk() {
+  return process.env.ND_CK || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getOriginState(origin) {
+  let state = originCookies.get(origin);
+  if (!state || Date.now() - state.createdAt > 55 * 60 * 1000) {
+    state = {
+      ndCk: makeNdCk(),
+      extra: new Map(),
+      createdAt: Date.now()
+    };
+    originCookies.set(origin, state);
+  }
+  return state;
+}
+
+function refreshOriginCookie(origin) {
+  const prev = originCookies.get(origin);
+  const state = {
+    ndCk: makeNdCk(),
+    extra: prev ? prev.extra : new Map(),
+    createdAt: Date.now()
+  };
+  originCookies.set(origin, state);
+  return state;
+}
+
+function absorbSetCookie(origin, setCookieHeader) {
+  if (!setCookieHeader) return;
+  const list = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+  const state = getOriginState(origin);
+  for (const raw of list) {
+    const pair = String(raw || '').split(';')[0];
+    const eq = pair.indexOf('=');
+    if (eq <= 0) continue;
+    const name = pair.slice(0, eq).trim();
+    const val = pair.slice(eq + 1).trim();
+    if (name === 'nd_ck' && val) state.ndCk = val;
+    else if (name) state.extra.set(name, val);
+  }
+}
+
+function getCookieHeader(origin) {
+  const state = getOriginState(origin);
+  const parts = [`nd_ck=${state.ndCk}`, 'nd_lang=id-ID'];
+  for (const [k, v] of state.extra.entries()) {
+    if (k !== 'nd_ck' && k !== 'nd_lang') parts.push(`${k}=${v}`);
+  }
+  return parts.join('; ');
+}
+
+function browserHtmlHeaders(origin) {
+  return {
+    Cookie: getCookieHeader(origin),
+    'User-Agent': UA,
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Upgrade-Insecure-Requests': '1',
+    Referer: `${origin}/`
+  };
+}
+
+function detectBlockReason(statusCode, html) {
+  if (/Checking your browser|document\.cookie\s*=\s*["']nd_ck=/i.test(html)) return 'browser_gate';
+  if (/Just a moment|cf-browser-verification|_cf_chl_opt/i.test(html)) return 'cloudflare_challenge';
+  if (statusCode === 403 || statusCode === 429 || statusCode === 503) return `http_${statusCode}`;
+  return '';
+}
+
+async function fetchUpstreamHtml(routePath, hasExpectedMarker) {
+  let lastError = new Error('Gagal mengambil halaman sumber');
+  for (const origin of UPSTREAM_ORIGINS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt === 1) refreshOriginCookie(origin);
+      try {
+        const upstream = await request(`${origin}${routePath}`, browserHtmlHeaders(origin));
+        absorbSetCookie(origin, upstream.headers['set-cookie']);
+        const html = (await readStream(upstream)).toString('utf8');
+        const blocked = detectBlockReason(upstream.statusCode, html);
+        if (blocked) {
+          lastError = new Error(
+            blocked === 'browser_gate'
+              ? `Sumber meminta verifikasi browser (nd_ck gate, HTTP ${upstream.statusCode})`
+              : blocked === 'cloudflare_challenge'
+                ? `Sumber terblokir Cloudflare challenge (HTTP ${upstream.statusCode})`
+                : `Sumber mengembalikan HTTP ${upstream.statusCode}`
+          );
+          if (attempt === 0) {
+            await new Promise(r => setTimeout(r, 200));
+            continue;
+          }
+          break;
+        }
+        if (upstream.statusCode !== 200) {
+          lastError = new Error(`Sumber HTTP ${upstream.statusCode}`);
+          break;
+        }
+        if (hasExpectedMarker && !hasExpectedMarker(html)) {
+          lastError = new Error('Struktur halaman sumber tidak sesuai');
+          if (attempt === 0) continue;
+          break;
+        }
+        return { html, origin };
+      } catch (err) {
+        lastError = err;
+      }
+    }
+  }
+  throw lastError;
+}
 
 const BASE_ALLOWED_HOSTS = new Set([
   'narto-drama.com',
@@ -244,18 +358,17 @@ function buildEpisodeSource(data, provider = '', baseOrigin = NARTO_ORIGIN) {
 }
 
 async function getEpisodes(slug) {
-  const upstream = await request(`${NARTO_ORIGIN}/detail/watch/${encodeURIComponent(slug)}/1?lang=id-ID`, {
-    Cookie: COOKIE, 'User-Agent': UA, Accept: 'text/html'
-  });
-  const html = (await readStream(upstream)).toString('utf8');
-  if (upstream.statusCode !== 200) throw new Error(`Sumber episode HTTP ${upstream.statusCode}`);
+  const { html, origin } = await fetchUpstreamHtml(
+    `/detail/watch/${encodeURIComponent(slug)}/1?lang=id-ID`,
+    body => /episodeItemsRaw\s*=\s*\[/.test(body)
+  );
   const match = html.match(/episodeItemsRaw\s*=\s*(\[.*?\]);/s);
   if (!match) throw new Error('Daftar episode tidak ditemukan');
 
   const provider = html.match(/const movieSourceAppName\s*=\s*"([^"]*)"/)?.[1]?.toLowerCase() || '';
   const edgeRaw = html.match(/const refreshSourceEdgeBase = ("(?:\\.|[^"])*")/);
   const edge = edgeRaw ? JSON.parse(edgeRaw[1]) : '';
-  const edgeOrigin = registerMediaUrl(edge) ? new URL(edge).origin : NARTO_ORIGIN;
+  const edgeOrigin = registerMediaUrl(edge) ? new URL(edge).origin : origin;
   const rawEpisodes = JSON.parse(match[1]);
   const initialSources = new Map();
 
@@ -264,7 +377,7 @@ async function getEpisodes(slug) {
     const routeNumber = Number(ep.route_episode_number || ep.number || index + 1);
     const initial = buildEpisodeSource(ep, provider, edgeOrigin);
     if (initial.url || initial.hasDrm) initialSources.set(routeNumber, initial);
-    const thumb = registerMediaUrl(ep.thumb_url, NARTO_ORIGIN);
+    const thumb = registerMediaUrl(ep.thumb_url, origin);
     return {
       number,
       routeNumber,
@@ -276,6 +389,7 @@ async function getEpisodes(slug) {
   });
 
   sourceContexts.set(slug, {
+    origin,
     provider,
     token: html.match(/const refreshSourceContextToken = "([^"]*)"/)?.[1] || '',
     edge,
@@ -295,28 +409,30 @@ function buildRefreshTargets(context, slug, number, options = {}) {
   if (options.forceEdge) params.set('force_edge', '1');
   const query = params.toString();
 
+  const baseOrigin = context.origin || NARTO_ORIGIN;
   const targets = [];
-  const edgeBase = context.edge || NARTO_ORIGIN;
+  const edgeBase = context.edge || baseOrigin;
   if (context.useEdge) {
     targets.push({ href: `${edgeBase.replace(/\/+$/, '')}/e/rs${route}?${query}`, isEdge: true });
   } else if (context.directEdge && context.edge) {
     targets.push({ href: `${edgeBase.replace(/\/+$/, '')}${route}?${query}`, isEdge: true });
   } else {
-    targets.push({ href: `${NARTO_ORIGIN}${route}?${query}`, isEdge: false });
+    targets.push({ href: `${baseOrigin}${route}?${query}`, isEdge: false });
     if (context.edge) targets.push({ href: `${edgeBase.replace(/\/+$/, '')}/e/rs${route}?${query}`, isEdge: true });
   }
   return targets;
 }
 
 async function requestEpisodeSource(context, slug, number, options = {}) {
+  const baseOrigin = context.origin || NARTO_ORIGIN;
   const targets = buildRefreshTargets(context, slug, number, options);
   let lastError = new Error('Pembaruan tautan gagal');
 
   for (const target of targets) {
     for (let retry = 0; retry < 2; retry++) {
       const headers = target.isEdge
-        ? { 'User-Agent': UA, Accept: 'application/json', Origin: NARTO_ORIGIN, Referer: `${NARTO_ORIGIN}/` }
-        : { Cookie: COOKIE, 'User-Agent': UA, Accept: 'application/json', Referer: `${NARTO_ORIGIN}/detail/watch/${encodeURIComponent(slug)}/${number}?lang=id-ID` };
+        ? { 'User-Agent': UA, Accept: 'application/json', Origin: baseOrigin, Referer: `${baseOrigin}/` }
+        : { Cookie: getCookieHeader(baseOrigin), 'User-Agent': UA, Accept: 'application/json', Referer: `${baseOrigin}/detail/watch/${encodeURIComponent(slug)}/${number}?lang=id-ID` };
       try {
         const upstream = await request(target.href, headers);
         const body = (await readStream(upstream)).toString('utf8');
@@ -392,11 +508,10 @@ async function refreshEpisode(slug, number, options = {}) {
 }
 
 async function searchCatalog(query) {
-  const upstream = await request(`${NARTO_ORIGIN}/search?q=${encodeURIComponent(query)}&lang=id-ID`, {
-    Cookie: COOKIE, 'User-Agent': UA, Accept: 'text/html'
-  });
-  const html = (await readStream(upstream)).toString('utf8');
-  if (upstream.statusCode !== 200) throw new Error(`Pencarian sumber HTTP ${upstream.statusCode}`);
+  const { html } = await fetchUpstreamHtml(
+    `/search?q=${encodeURIComponent(query)}&lang=id-ID`,
+    body => /CollectionPage/.test(body)
+  );
   return extractCatalog(html);
 }
 
@@ -422,11 +537,10 @@ function updateCatalog(query = '') {
   syncPromise = (async () => {
     const latest = [];
     for (let page = 1; page <= 3; page++) {
-      const upstream = await request(`${NARTO_ORIGIN}/?lang=id-ID&page=${page}`, {
-        Cookie: COOKIE, 'User-Agent': UA, Accept: 'text/html'
-      });
-      const html = (await readStream(upstream)).toString('utf8');
-      if (upstream.statusCode !== 200) throw new Error(`Katalog sumber HTTP ${upstream.statusCode}`);
+      const { html } = await fetchUpstreamHtml(
+        `/?lang=id-ID&page=${page}`,
+        body => /CollectionPage/.test(body)
+      );
       latest.push(...extractCatalog(html));
       if (!html.includes('rel="next"')) break;
     }
