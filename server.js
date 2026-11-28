@@ -1,5 +1,6 @@
 const http = require('http');
 const https = require('https');
+const tls = require('tls');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -82,6 +83,7 @@ function browserHtmlHeaders(origin) {
 function detectBlockReason(statusCode, html) {
   if (/Checking your browser|document\.cookie\s*=\s*["']nd_ck=/i.test(html)) return 'browser_gate';
   if (/Just a moment|cf-browser-verification|_cf_chl_opt/i.test(html)) return 'cloudflare_challenge';
+  if (/turn off vpn|disable.*vpn|vpn\s*\/\s*proxy|proxy detected/i.test(html)) return 'vpn_proxy_block';
   if (statusCode === 403 || statusCode === 429 || statusCode === 503) return `http_${statusCode}`;
   return '';
 }
@@ -102,7 +104,9 @@ async function fetchUpstreamHtml(routePath, hasExpectedMarker) {
               ? `Sumber meminta verifikasi browser (nd_ck gate, HTTP ${upstream.statusCode})`
               : blocked === 'cloudflare_challenge'
                 ? `Sumber terblokir Cloudflare challenge (HTTP ${upstream.statusCode})`
-                : `Sumber mengembalikan HTTP ${upstream.statusCode}`
+                : blocked === 'vpn_proxy_block'
+                  ? 'IP server diblokir sumber ("turn off vpn / proxy"). Set UPSTREAM_PROXY ke IP non-VPS.'
+                  : `Sumber mengembalikan HTTP ${upstream.statusCode}`
           );
           if (attempt === 0) {
             await new Promise(r => setTimeout(r, 200));
@@ -202,11 +206,68 @@ function isAllowedMediaUrl(target) {
   return false;
 }
 
-function request(target, headers = {}, redirects = 0, method = 'GET') {
+const UPSTREAM_PROXY = (process.env.UPSTREAM_PROXY || process.env.HTTPS_PROXY || '').trim();
+
+function shouldProxyHost(hostname) {
+  if (!UPSTREAM_PROXY) return false;
+  const host = String(hostname || '').toLowerCase();
+  return host === 'narto-drama.com' || host.endsWith('.narto-drama.com') || host === 'nartodrama.com' || host.endsWith('.nartodrama.com');
+}
+
+function connectViaProxy(targetUrl) {
   return new Promise((resolve, reject) => {
-    const url = new URL(target);
+    const proxy = new URL(UPSTREAM_PROXY);
+    const port = Number(targetUrl.port) || (targetUrl.protocol === 'https:' ? 443 : 80);
+    const proxyPort = Number(proxy.port) || (proxy.protocol === 'https:' ? 443 : 80);
+    const transport = proxy.protocol === 'https:' ? https : http;
+    const reqHeaders = { Host: `${targetUrl.hostname}:${port}` };
+    if (proxy.username || proxy.password) {
+      const creds = `${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`;
+      reqHeaders['Proxy-Authorization'] = `Basic ${Buffer.from(creds).toString('base64')}`;
+    }
+    const connectReq = transport.request({
+      host: proxy.hostname,
+      port: proxyPort,
+      method: 'CONNECT',
+      path: `${targetUrl.hostname}:${port}`,
+      headers: reqHeaders,
+      timeout: 20000
+    });
+    connectReq.on('connect', (res, socket) => {
+      if (res.statusCode !== 200) {
+        socket.destroy();
+        return reject(new Error(`Proxy CONNECT HTTP ${res.statusCode}`));
+      }
+      resolve(socket);
+    });
+    connectReq.on('timeout', () => connectReq.destroy(new Error('Proxy timeout')));
+    connectReq.on('error', reject);
+    connectReq.end();
+  });
+}
+
+async function request(target, headers = {}, redirects = 0, method = 'GET') {
+  const url = new URL(target);
+  const socket = shouldProxyHost(url.hostname) ? await connectViaProxy(url) : null;
+  const agent = socket
+    ? new (url.protocol === 'https:' ? https : http).Agent({ keepAlive: false })
+    : undefined;
+  if (agent && socket) {
+    agent.createConnection = url.protocol === 'https:'
+      ? (_opts, cb) => {
+          const tlsSock = tls.connect({ socket, servername: url.hostname });
+          if (cb) cb(null, tlsSock);
+          return tlsSock;
+        }
+      : (_opts, cb) => {
+          if (cb) cb(null, socket);
+          return socket;
+        };
+  }
+  return new Promise((resolve, reject) => {
     const transport = url.protocol === 'https:' ? https : http;
-    const req = transport.request(url, { method, headers, timeout: 20000 }, upstream => {
+    const opts = { method, headers, timeout: 20000, ...(agent ? { agent } : {}) };
+    const req = transport.request(url, opts, upstream => {
       if ([301, 302, 307, 308].includes(upstream.statusCode) && upstream.headers.location && redirects < 4) {
         const nextUrl = new URL(upstream.headers.location, url);
         upstream.resume();
